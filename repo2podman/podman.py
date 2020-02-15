@@ -48,6 +48,7 @@ def exec_podman(args, *, capture):
     lines = []
     try:
         for line in p:
+            print(line)
             lines.append(line)
         return lines
     except CalledProcessError as e:
@@ -308,6 +309,9 @@ class PodmanEngine(ContainerEngine):
         if remove:
             cmdargs.append("--rm")
 
+        # TODO: Make this configurable via a config traitlet
+        cmdargs.append("--log-level=debug")
+
         command = command or []
 
         if kwargs:
@@ -315,6 +319,10 @@ class PodmanEngine(ContainerEngine):
 
         cmdline = cmdargs + [image_spec] + command
         lines = exec_podman(cmdline, capture=True)
+
+        # Note possible race condition:
+        # If the container exits immediately and remove=True the next line may fail
+        # since it's not possible to fetch the container details
 
         # If image was pulled the progress logs will also be present
         # assert len(lines) == 1, lines

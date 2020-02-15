@@ -15,20 +15,20 @@ def test_run():
     # assert len(out) == 1
     assert out[-1].strip() == "root", out
     c.remove()
-
-
-@pytest.mark.parametrize("autoremove", (True, False))
-def test_run_remove(autoremove):
-    client = PodmanEngine(parent=None)
-    c = client.run("busybox", command=["id", "-un"], remove=autoremove)
-    if not autoremove:
-        c.reload()
-        c.remove()
-        sleep(0.1)
     with pytest.raises(PodmanCommandError) as exc:
         c.reload()
-    msg = "".join(exc.value.output)
-    assert "error looking up container" in msg
+    assert "error looking up container" in "".join(exc.value.output)
+
+
+def test_run_autoremove():
+    client = PodmanEngine(parent=None)
+    # Need to sleep in container to prevent race condition
+    c = client.run("busybox", command=["sh", "-c", "sleep 1; id -un"], remove=True)
+    # Sleep to ensure container has exited
+    sleep(2)
+    with pytest.raises(PodmanCommandError) as exc:
+        c.reload()
+    assert "error looking up container" in "".join(exc.value.output)
 
 
 def test_run_detach_nostream():

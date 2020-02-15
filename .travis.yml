@@ -39,7 +39,7 @@ script:
       if [ ${REPO_TYPE} == "r" ] || [ ${REPO_TYPE} == "stencila-r" ] || [ ${REPO_TYPE} == "stencila-py" ]; then
         travis_wait 30 pytest --durations 10 -v ${REPO_TYPE} || exit 1;
       else
-        travis_retry pytest --durations 10 -v ${REPO_TYPE} || exit 1;
+        pytest -s --durations 10 -v ${REPO_TYPE} || exit 1;
       fi;
       popd;
     fi
