@@ -9,26 +9,62 @@ from traitlets import Unicode
 from repo2docker.engine import (
     Container,
     ContainerEngine,
-    ContainerEngineException,
     Image,
 )
 from repo2docker.utils import execute_cmd
 
 
-def exec_podman(args, capture=False, **kwargs):
+class PodmanCommandError(Exception):
+    def __init__(self, error, output=None):
+        self.e = error
+        self.output = output
+
+    def __str__(self):
+        s = "PodmanCommandError\n  {}".format(self.e)
+        if self.output is not None:
+            s += "\n  {}".format("".join(self.output))
+        return s
+
+
+def exec_podman(args, *, capture):
+    """
+    Execute a podman command
+    capture:
+    - False: Command will output directly to terminal, raise PodmanCommandError if
+      exit code is not 0
+    - True: Capture stdout and stderr combined, raise PodmanCommandError if exit code
+      is not 0 (this will include any output that occurred before the exception).
+
+    Note podman usually exits with code 125 if a podman error occurred to differentiate
+    it from the exit code of the container.
+    """
     cmd = ["podman"] + args
-    print("Executing: {} {}".format(" ".join(cmd), kwargs))
+    print("Executing: {}".format(" ".join(cmd)))
     try:
-        p = execute_cmd(cmd, capture=capture, **kwargs)
-    except CalledProcessError:
-        print(kwargs["stdout"])
-        print(kwargs["stderr"])
-        raise
-    if capture:
-        yield from p
-    for line in p:
-        print(line)
-        # pass
+        p = execute_cmd(cmd, capture=capture)
+    except CalledProcessError as e:
+        raise PodmanCommandError(e) from None
+    # Need to iterate even if not capturing because execute_cmd is a generator
+    lines = []
+    try:
+        for line in p:
+            lines.append(line)
+        return lines
+    except CalledProcessError as e:
+        raise PodmanCommandError(e, lines) from None
+
+
+def exec_podman_stream(args):
+    """
+    Execute a podman command and stream the output
+
+    Passes on CalledProcessError if exit code is not 0
+    """
+    cmd = ["podman"] + args
+    print("Executing: {}".format(" ".join(cmd)))
+    p = execute_cmd(cmd, capture=True)
+    # This will stream the output and also pass any exceptions to the caller
+    yield from p
 
 
 class PodmanContainer(Container):
@@ -37,16 +73,14 @@ class PodmanContainer(Container):
         self.reload()
 
     def reload(self):
-        lines = list(
-            exec_podman(
-                ["inspect", "--type", "container", "--format", "json", self.id],
-                capture=True,
-            )
+        lines = exec_podman(
+            ["inspect", "--type", "container", "--format", "json", self.id],
+            capture=True,
         )
         d = json.loads("".join(lines))
         assert len(d) == 1
         self.attrs = d[0]
-        assert self.attrs["Id"] == self.id
+        assert self.attrs["Id"].startswith(self.id)
 
     def logs(self, *, stream=False):
         if stream:
@@ -54,9 +88,7 @@ class PodmanContainer(Container):
             def iter_logs(cid):
                 exited = False
                 try:
-                    for line in exec_podman(
-                        ["attach", "--no-stdin", cid], capture=True
-                    ):
+                    for line in exec_podman_stream(["attach", "--no-stdin", cid]):
                         if exited or line.startswith(
                             "Error: you can only attach to running containers"
                         ):
@@ -69,27 +101,22 @@ class PodmanContainer(Container):
                 except CalledProcessError as e:
                     print(e, line.encode("utf-8"))
                     if e.returncode == 125 and exited:
-                        for line in exec_podman(["logs", self.id], capture=True):
+                        for line in exec_podman_stream(["logs", self.id]):
                             yield line.encode("utf-8")
                     else:
                         raise
 
             return iter_logs(self.id)
-        return "".join(exec_podman(["logs", self.id], capture=True))
+        return exec_podman(["logs", self.id], capture=True)
 
     def kill(self, *, signal="KILL"):
-        for line in exec_podman(["kill", "--signal", signal, self.id]):
-            print(line)
+        exec_podman(["kill", "--signal", signal, self.id], capture=False)
 
     def remove(self):
-        print("podman remove")
-        cmdargs = ["rm"]
-        for line in exec_podman(cmdargs + [self.id]):
-            print(line)
+        exec_podman(["rm", self.id], capture=False)
 
     def stop(self, *, timeout=10):
-        for line in exec_podman(["stop", "--timeout", str(timeout), self.id]):
-            print(line)
+        exec_podman(["stop", "--timeout", str(timeout), self.id], capture=False)
 
     @property
     def exitcode(self):
@@ -108,9 +135,7 @@ class PodmanEngine(ContainerEngine):
     def __init__(self, *, parent):
         super().__init__(parent=parent)
 
-        exec_podman(["info"])
-
-        print(self.default_transport)
+        exec_podman(["info"], capture=False)
 
     default_transport = Unicode(
         "docker://docker.io/",
@@ -194,12 +219,12 @@ class PodmanEngine(ContainerEngine):
                 print(builddir)
                 for line in execute_cmd(["ls", "-lRa", builddir]):
                     print(line)
-                for line in exec_podman(cmdargs + [builddir], capture=True):
+                for line in exec_podman_stream(cmdargs + [builddir]):
                     yield line
         else:
             builddir = path
             assert path
-            for line in exec_podman(cmdargs + [builddir], capture=True):
+            for line in exec_podman_stream(cmdargs + [builddir]):
                 yield line
 
     def images(self):
@@ -211,19 +236,17 @@ class PodmanEngine(ContainerEngine):
                     if tag.startswith("localhost/"):
                         yield tag[10:]
 
-        lines = "".join(
-            exec_podman(["image", "list", "--format", "json"], capture=True)
-        )
+        lines = exec_podman(["image", "list", "--format", "json"], capture=True)
+        lines = "".join(lines)
+
         if lines.strip():
             images = json.loads(lines)
             return [Image(tags=list(remove_local(image["names"]))) for image in images]
         return []
 
     def inspect_image(self, image):
-        lines = list(
-            exec_podman(
-                ["inspect", "--type", "image", "--format", "json", image], capture=True
-            )
+        lines = exec_podman(
+            ["inspect", "--type", "image", "--format", "json", image], capture=True
         )
         d = json.loads("".join(lines))
         assert len(d) == 1
@@ -236,14 +259,14 @@ class PodmanEngine(ContainerEngine):
         return image
 
     def push(self, image_spec):
-        if re.match("\w+://", image_spec):
+        if re.match(r"\w+://", image_spec):
             destination = image_spec
         else:
             destination = self.default_transport + image_spec
         args = ["push", image_spec, destination]
 
         def iter_out():
-            for line in exec_podman(args, capture=True):
+            for line in exec_podman_stream(args):
                 yield line
 
         return iter_out()
@@ -282,7 +305,8 @@ class PodmanEngine(ContainerEngine):
         for e in env:
             cmdargs.extend(["--env", e])
 
-        cmdargs.append("--rm")
+        if remove:
+            cmdargs.append("--rm")
 
         command = command or []
 
@@ -290,7 +314,7 @@ class PodmanEngine(ContainerEngine):
             raise ValueError("Additional kwargs not supported")
 
         cmdline = cmdargs + [image_spec] + command
-        lines = list(exec_podman(cmdline, capture=True))
+        lines = exec_podman(cmdline, capture=True)
 
         # If image was pulled the progress logs will also be present
         # assert len(lines) == 1, lines
