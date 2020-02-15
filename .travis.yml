@@ -4,6 +4,15 @@ cache: pip
 python:
   - 3.6
 
+before_install:
+  # Install podman
+  - sudo sh -c "add-apt-repository -y ppa:projectatomic/ppa && apt-get update -y && apt-get install -y podman slirp4netns"
+  - sudo sh -c "echo \"[registries.search]\nregistries = ['docker.io']\n\" > /etc/containers/registries.conf"
+  # On ubuntu:xenial running podman as non-root defaults to using VFS instead of overlay as the kernel is too old to support fuse-overlayfs
+  # VFS is extremely inefficient so for now run podman as root
+  - /bin/echo -e '#!/bin/sh\nexec sudo podman "$@"' > ~/bin/podman && chmod +x ~/bin/podman
+  - podman info
+
 install:
   # Make a wheel and install it to test to catch possible
   # issues with releases
@@ -12,12 +21,32 @@ install:
   - python setup.py bdist_wheel
   - pip install dist/*.whl
   - pip freeze
+  - git clone --depth 1 --single-branch https://github.com/jupyter/repo2docker tests-repo2docker
+  - |
+    for d in ./tests-repo2docker/tests/*/; do
+      if [ "${d##*tests/}" != "unit/" ]; then
+        cp -a $d tests
+      fi
+    done
 
 script:
   - |
     # run autoformat
     if [[ "$REPO_TYPE" == "lint" ]]; then
       pre-commit run --all-files
+    fi
+  - |
+    # run any of the other tests
+    if [[ "$REPO_TYPE" != "lint" ]]; then
+      # cd into tests so CWD being repo2docker does not hide
+      # possible issues with MANIFEST.in
+      pushd tests;
+      if [ ${REPO_TYPE} == "r" ] || [ ${REPO_TYPE} == "stencila-r" ] || [ ${REPO_TYPE} == "stencila-py" ]; then
+        travis_wait 30 pytest --durations 10 -v ${REPO_TYPE} || exit 1;
+      else
+        travis_retry pytest --durations 10 -v ${REPO_TYPE} || exit 1;
+      fi;
+      popd;
     fi
 
 after_failure:
@@ -37,6 +66,32 @@ matrix:
   include:
     - env:
         - REPO_TYPE=lint
+    - env:
+        - REPO_TYPE=unit
+
+    - env:
+        - REPO_TYPE=base
+    - env:
+        - REPO_TYPE=conda
+    - env:
+        - REPO_TYPE=pipfile
+    - env:
+        - REPO_TYPE=venv
+    - env:
+        - REPO_TYPE=stencila-r
+    - env:
+        - REPO_TYPE=stencila-py
+    - env:
+        - REPO_TYPE=julia
+    - env:
+        - REPO_TYPE=r
+    - env:
+        - REPO_TYPE=nix
+    - env:
+        - REPO_TYPE=dockerfile
+    - env:
+        - REPO_TYPE=external
+
 jobs:
   include:
     - stage: deploy
