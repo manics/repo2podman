@@ -4,7 +4,8 @@ setuptools.setup(
     name="repo2docker-podman",
     # https://github.com/jupyter/repo2docker/pull/848
     install_requires=[
-        "jupyter-repo2docker @ git+https://github.com/manics/repo2docker.git@abstractengine"
+        "jupyter-repo2docker @ "
+        "git+https://github.com/manics/repo2docker.git@abstractengine"
     ],
     python_requires=">=3.5",
     author="Simon Li",
