@@ -8,18 +8,15 @@ return a non-zero exit code for the test to be considered a
 success.
 """
 
-# import json
 import os
 import pipes
-
-# import requests
+import requests
 import time
 
 import pytest
 import yaml
 
 from repo2docker.__main__ import make_r2d
-from repo2podman.podman import exec_podman
 
 
 def pytest_collect_file(parent, path):
@@ -55,18 +52,7 @@ def make_test_func(args):
                 container.reload()
                 assert container.status == "running"
                 try:
-                    # TODO: Travis podman has problems with port-fowarding
-                    # so for now run curl inside container
-                    # info = requests.get(container_url).json()
-                    info = "".join(
-                        exec_podman(
-                            ["exec", container.id, "wget", "-qO-", container_url],
-                            capture=True,
-                        )
-                    )
-                    # TODO: info is empty, requires this bux-fix:
-                    # https://github.com/jupyter/repo2docker/pull/850
-                    # info = json.loads(info)
+                    info = requests.get(container_url).json()
                 except Exception as e:
                     print("Error: %s" % e)
                     time.sleep(i * 3)
