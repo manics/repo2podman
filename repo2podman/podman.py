@@ -242,7 +242,11 @@ class PodmanEngine(ContainerEngine):
 
         if lines.strip():
             images = json.loads(lines)
-            return [Image(tags=list(remove_local(image["names"]))) for image in images]
+            try:
+                return [Image(tags=list(remove_local(image["names"]))) for image in images]
+            except KeyError:
+                # Podman 1.9.0+
+                return [Image(tags=list(remove_local(image["Names"]))) for image in images]
         return []
 
     def inspect_image(self, image):
