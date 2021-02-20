@@ -21,7 +21,7 @@ from repo2docker.__main__ import make_r2d
 
 def pytest_collect_file(parent, path):
     if path.basename == "verify":
-        return LocalRepo(path, parent)
+        return LocalRepo.from_parent(parent, fspath=path)
     # elif path.basename.endswith(".repos.yaml"):
     #     return RemoteRepoList(path, parent)
 
@@ -112,5 +112,7 @@ class LocalRepo(pytest.File):
 
         args.append(self.fspath.dirname)
 
-        yield Repo2DockerTest("build", self, args=args)
-        yield Repo2DockerTest(self.fspath.basename, self, args=args + ["./verify"])
+        yield Repo2DockerTest.from_parent(self, name="build", args=args)
+        yield Repo2DockerTest.from_parent(
+            self, name=self.fspath.basename, args=args + ["./verify"]
+        )
