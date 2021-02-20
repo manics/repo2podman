@@ -17,7 +17,7 @@ def test_run():
     c.remove()
     with pytest.raises(PodmanCommandError) as exc:
         c.reload()
-    assert "error looking up container" in "".join(exc.value.output)
+    assert "".join(exc.value.output).strip() == "[]"
 
 
 def test_run_autoremove():
@@ -28,7 +28,7 @@ def test_run_autoremove():
     sleep(2)
     with pytest.raises(PodmanCommandError) as exc:
         c.reload()
-    assert "error looking up container" in "".join(exc.value.output)
+    assert "".join(exc.value.output).strip() == "[]"
 
 
 def test_run_detach_nostream():
