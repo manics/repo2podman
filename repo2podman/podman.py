@@ -1,9 +1,10 @@
 # Use Podman instead of Docker
+from functools import partial
 import json
 import re
-from subprocess import CalledProcessError
-from tempfile import TemporaryDirectory
+from subprocess import CalledProcessError, PIPE, STDOUT, Popen
 import tarfile
+from tempfile import TemporaryDirectory
 from traitlets import Unicode
 
 from repo2docker.engine import (
@@ -11,7 +12,64 @@ from repo2docker.engine import (
     ContainerEngine,
     Image,
 )
-from repo2docker.utils import execute_cmd
+
+
+def execute_cmd(cmd, capture=None, **kwargs):
+    """
+    Call given command, yielding output line by line if capture is set.
+
+    Modified version of repo2docker.utils.execute_cmd
+    that allows capturing of stdout, stderr or both.
+
+    Must be yielded from.
+    """
+    if capture == "stdout":
+        kwargs["stdout"] = PIPE
+    elif capture == "stderr":
+        kwargs["stderr"] = PIPE
+    elif capture == "both":
+        kwargs["stdout"] = PIPE
+        kwargs["stderr"] = STDOUT
+        capture = "stdout"
+    elif capture is not None:
+        raise ValueError("Invalid capture argument: {}".format(capture))
+
+    proc = Popen(cmd, **kwargs)
+
+    if not capture:
+        # not capturing output, let subprocesses talk directly to terminal
+        ret = proc.wait()
+        if ret != 0:
+            raise CalledProcessError(ret, cmd)
+        return
+
+    # Capture output for logging.
+    # Each line will be yielded as text.
+    # This should behave the same as .readline(), but splits on `\r` OR `\n`,
+    # not just `\n`.
+    buf = []
+
+    def flush():
+        """Flush next line of the buffer"""
+        line = b"".join(buf).decode("utf8", "replace")
+        buf[:] = []
+        return line
+
+    c_last = ""
+    try:
+        for c in iter(partial(getattr(proc, capture).read, 1), b""):
+            if c_last == b"\r" and buf and c != b"\n":
+                yield flush()
+            buf.append(c)
+            if c == b"\n":
+                yield flush()
+            c_last = c
+        if buf:
+            yield flush()
+    finally:
+        ret = proc.wait()
+        if ret != 0:
+            raise CalledProcessError(ret, cmd)
 
 
 class PodmanCommandError(Exception):
@@ -30,11 +88,14 @@ def exec_podman(args, *, capture):
     """
     Execute a podman command
     capture:
-    - False: Command will output directly to terminal, raise PodmanCommandError if
+    - None: Command will output directly to terminal, raise PodmanCommandError if
       exit code is not 0
-    - True: Capture stdout and stderr combined, raise PodmanCommandError if exit code
-      is not 0 (this will include any output that occurred before the exception).
+    - "both": Capture stdout and stderr combined
+    - "stdout": Capture stdout
+    - "stderr": Capture stderr
 
+    Raises PodmanCommandError if exit code is not 0 (if capturing this will include
+    any output that occurred before the exception).
     Note podman usually exits with code 125 if a podman error occurred to differentiate
     it from the exit code of the container.
     """
@@ -63,7 +124,7 @@ def exec_podman_stream(args):
     """
     cmd = ["podman"] + args
     print("Executing: {}".format(" ".join(cmd)))
-    p = execute_cmd(cmd, capture=True)
+    p = execute_cmd(cmd, capture="both")
     # This will stream the output and also pass any exceptions to the caller
     yield from p
 
@@ -76,7 +137,7 @@ class PodmanContainer(Container):
     def reload(self):
         lines = exec_podman(
             ["inspect", "--type", "container", "--format", "json", self.id],
-            capture=True,
+            capture="stdout",
         )
         d = json.loads("".join(lines))
         assert len(d) == 1
@@ -108,16 +169,16 @@ class PodmanContainer(Container):
                         raise
 
             return iter_logs(self.id)
-        return exec_podman(["logs", self.id], capture=True)
+        return exec_podman(["logs", self.id], capture="both")
 
     def kill(self, *, signal="KILL"):
-        exec_podman(["kill", "--signal", signal, self.id], capture=False)
+        exec_podman(["kill", "--signal", signal, self.id], capture=None)
 
     def remove(self):
-        exec_podman(["rm", self.id], capture=False)
+        exec_podman(["rm", self.id], capture=None)
 
     def stop(self, *, timeout=10):
-        exec_podman(["stop", "--timeout", str(timeout), self.id], capture=False)
+        exec_podman(["stop", "--timeout", str(timeout), self.id], capture=None)
 
     @property
     def exitcode(self):
@@ -136,7 +197,7 @@ class PodmanEngine(ContainerEngine):
     def __init__(self, *, parent):
         super().__init__(parent=parent)
 
-        exec_podman(["info"], capture=False)
+        exec_podman(["info"], capture=None)
 
     default_transport = Unicode(
         "docker://docker.io/",
@@ -237,21 +298,28 @@ class PodmanEngine(ContainerEngine):
                     if tag.startswith("localhost/"):
                         yield tag[10:]
 
-        lines = exec_podman(["image", "list", "--format", "json"], capture=True)
+        lines = exec_podman(["image", "list", "--format", "json"], capture="stdout")
         lines = "".join(lines)
 
         if lines.strip():
             images = json.loads(lines)
             try:
-                return [Image(tags=list(remove_local(image["names"]))) for image in images]
+                return [
+                    Image(tags=list(remove_local(image["names"]))) for image in images
+                ]
             except KeyError:
-                # Podman 1.9.0+
-                return [Image(tags=list(remove_local(image["Names"]))) for image in images]
+                # Podman 1.9.1+
+                # Some images may not have a name
+                return [
+                    Image(tags=list(remove_local(image["Names"])))
+                    for image in images
+                    if "Names" in image
+                ]
         return []
 
     def inspect_image(self, image):
         lines = exec_podman(
-            ["inspect", "--type", "image", "--format", "json", image], capture=True
+            ["inspect", "--type", "image", "--format", "json", image], capture="stdout"
         )
         d = json.loads("".join(lines))
         assert len(d) == 1
@@ -322,7 +390,7 @@ class PodmanEngine(ContainerEngine):
             raise ValueError("Additional kwargs not supported")
 
         cmdline = cmdargs + [image_spec] + command
-        lines = exec_podman(cmdline, capture=True)
+        lines = exec_podman(cmdline, capture="stdout")
 
         # Note possible race condition:
         # If the container exits immediately and remove=True the next line may fail
