@@ -12,7 +12,6 @@ def test_run():
     assert isinstance(c, PodmanContainer)
     # If image was pulled the progress logs will also be present
     out = c.logs()
-    # assert len(out) == 1
     assert out[-1].strip() == "root", out
     c.remove()
     with pytest.raises(PodmanCommandError) as exc:
@@ -26,6 +25,22 @@ def test_run_autoremove():
     c = client.run("busybox", command=["sh", "-c", "sleep 1; id -un"], remove=True)
     # Sleep to ensure container has exited
     sleep(2)
+    with pytest.raises(PodmanCommandError) as exc:
+        c.reload()
+    assert "".join(exc.value.output).strip() == "[]"
+
+
+def test_run_detach_wait():
+    client = PodmanEngine(parent=None)
+    c = client.run("busybox", command=["sh", "-c", "echo before; sleep 5; echo after"])
+    assert re.match("^[0-9a-f]{64}$", c.id)
+    # If image was pulled the progress logs will also be present
+    out = c.logs()
+    assert out[-1].strip() == "before", out
+    c.wait()
+    out = c.logs()
+    assert out[-1].strip() == "after", out
+    c.remove()
     with pytest.raises(PodmanCommandError) as exc:
         c.reload()
     assert "".join(exc.value.output).strip() == "[]"

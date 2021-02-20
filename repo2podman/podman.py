@@ -180,6 +180,9 @@ class PodmanContainer(Container):
     def stop(self, *, timeout=10):
         exec_podman(["stop", "--timeout", str(timeout), self.id], capture=None)
 
+    def wait(self):
+        exec_podman(["wait", self.id], capture=None)
+
     @property
     def exitcode(self):
         return self.attrs["State"]["ExitCode"]
