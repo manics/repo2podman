@@ -127,5 +127,9 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# repo2podman
+.vagrant/
 repo2podman/_version.py*
 tests/*/
+!tests/unit
