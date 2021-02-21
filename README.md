@@ -1,6 +1,6 @@
 # repo2docker podman
 
-[![Build Status](https://travis-ci.com/manics/repo2docker-podman.svg?branch=master)](https://travis-ci.com/manics/repo2docker-podman)
+[![Build Status](https://github.com/manics/repo2docker-podman/actions/workflows/test.yml/badge.svg)](https://github.com/manics/repo2docker-podman/actions/workflows/test.yml)
 
 `repo2docker-podman` is a plugin for [repo2docker](http://repo2docker.readthedocs.io) that lets you use [Podman](https://podman.io/) instead of Docker.
 
