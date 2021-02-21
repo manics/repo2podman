@@ -6,9 +6,12 @@ from repo2podman.podman import PodmanCommandError, PodmanContainer, PodmanEngine
 from time import sleep
 
 
+BUSYBOX = "docker.io/library/busybox"
+
+
 def test_run():
     client = PodmanEngine(parent=None)
-    c = client.run("busybox", command=["id", "-un"])
+    c = client.run(BUSYBOX, command=["id", "-un"])
     assert isinstance(c, PodmanContainer)
     # If image was pulled the progress logs will also be present
     out = c.logs().splitlines()
@@ -22,7 +25,7 @@ def test_run():
 def test_run_autoremove():
     client = PodmanEngine(parent=None)
     # Need to sleep in container to prevent race condition
-    c = client.run("busybox", command=["sh", "-c", "sleep 1; id -un"], remove=True)
+    c = client.run(BUSYBOX, command=["sh", "-c", "sleep 1; id -un"], remove=True)
     # Sleep to ensure container has exited
     sleep(2)
     with pytest.raises(PodmanCommandError) as exc:
@@ -32,7 +35,7 @@ def test_run_autoremove():
 
 def test_run_detach_wait():
     client = PodmanEngine(parent=None)
-    c = client.run("busybox", command=["sh", "-c", "echo before; sleep 5; echo after"])
+    c = client.run(BUSYBOX, command=["sh", "-c", "echo before; sleep 5; echo after"])
     assert re.match("^[0-9a-f]{64}$", c.id)
     # If image was pulled the progress logs will also be present
     out = c.logs().splitlines()
@@ -48,7 +51,7 @@ def test_run_detach_wait():
 
 def test_run_detach_nostream():
     client = PodmanEngine(parent=None)
-    c = client.run("busybox", command=["id", "-un"])
+    c = client.run(BUSYBOX, command=["id", "-un"])
     assert re.match("^[0-9a-f]{64}$", c.id)
     sleep(1)
     c.reload()
@@ -62,7 +65,7 @@ def test_run_detach_nostream():
 
 def test_run_detach_stream_live():
     client = PodmanEngine(parent=None)
-    c = client.run("busybox", command=["sh", "-c", "sleep 5; id -un"])
+    c = client.run(BUSYBOX, command=["sh", "-c", "sleep 5; id -un"])
     assert isinstance(c, PodmanContainer)
     assert re.match("^[0-9a-f]{64}$", c.id)
     sleep(1)
@@ -77,7 +80,7 @@ def test_run_detach_stream_live():
 
 def test_run_detach_stream_exited():
     client = PodmanEngine(parent=None)
-    c = client.run("busybox", command=["id", "-un"])
+    c = client.run(BUSYBOX, command=["id", "-un"])
     assert isinstance(c, PodmanContainer)
     assert re.match("^[0-9a-f]{64}$", c.id)
     sleep(1)
