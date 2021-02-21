@@ -169,7 +169,7 @@ class PodmanContainer(Container):
                         raise
 
             return iter_logs(self.id)
-        return exec_podman(["logs", self.id], capture="both")
+        return "\n".join(exec_podman(["logs", self.id], capture="both")).encode("utf-8")
 
     def kill(self, *, signal="KILL"):
         exec_podman(["kill", "--signal", signal, self.id], capture=None)

@@ -11,8 +11,8 @@ def test_run():
     c = client.run("busybox", command=["id", "-un"])
     assert isinstance(c, PodmanContainer)
     # If image was pulled the progress logs will also be present
-    out = c.logs()
-    assert out[-1].strip() == "root", out
+    out = c.logs().splitlines()
+    assert out[-1].strip() == b"root", out
     c.remove()
     with pytest.raises(PodmanCommandError) as exc:
         c.reload()
@@ -35,11 +35,11 @@ def test_run_detach_wait():
     c = client.run("busybox", command=["sh", "-c", "echo before; sleep 5; echo after"])
     assert re.match("^[0-9a-f]{64}$", c.id)
     # If image was pulled the progress logs will also be present
-    out = c.logs()
-    assert out[-1].strip() == "before", out
+    out = c.logs().splitlines()
+    assert out[-1].strip() == b"before", out
     c.wait()
-    out = c.logs()
-    assert out[-1].strip() == "after", out
+    out = c.logs().splitlines()
+    assert out[-1].strip() == b"after", out
     c.remove()
     with pytest.raises(PodmanCommandError) as exc:
         c.reload()
@@ -53,8 +53,8 @@ def test_run_detach_nostream():
     sleep(1)
     c.reload()
     assert c.status == "exited"
-    out = "".join(c.logs())
-    assert out.strip() == "root"
+    out = c.logs()
+    assert out.strip() == b"root"
     c.remove()
     with pytest.raises(PodmanCommandError):
         c.reload()
