@@ -20,17 +20,19 @@ jobs:
       matrix:
         python_version: ["3.9"]
         repo_type:
+          # Only test a subset of the repo2docker tests since we're testing podman,
+          # not the full repo2docker functionality
           - base
-          # - conda
+          - conda/simple
           - dockerfile
-          - external
+          # - external
           # - julia
           # - memlimit
           # - nix
           # - pipfile
           # - r
           - unit
-          - venv
+          - venv/default
 
     steps:
       - name: Checkout repo
