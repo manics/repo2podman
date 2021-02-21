@@ -68,5 +68,13 @@ jobs:
             fi
           done
 
+      # 2021-02-21: Workarounds to avoid podman warnings that interrupt test output
+      # dbus-launch https://github.com/containers/podman/issues/9353
+      - name: Work around podman warning output
+        run: |
+          sudo apt-get update && sudo apt-get install -y -q dbus-x11
+          sudo sed -i -re 's/[# ]*cgroup_manager = .+/cgroup_manager = "cgroupfs"/' /etc/containers/containers.conf
+          sudo apt-get install --only-upgrade podman
+
       - name: Run tests
         run: pytest -v tests/${{ matrix.repo_type }}
