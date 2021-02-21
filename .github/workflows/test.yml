@@ -1,0 +1,80 @@
+name: Test
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  lint:
+    runs-on: ubuntu-20.04
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-python@v2
+      - uses: pre-commit/action@v2.0.0
+
+  test:
+    runs-on: ubuntu-20.04
+    strategy:
+      # Do not cancel all jobs if one fails
+      fail-fast: false
+      matrix:
+        python_version: ["3.9"]
+        repo_type:
+          # Only test a subset of the repo2docker tests since we're testing podman,
+          # not the full repo2docker functionality
+          - base
+          - conda/simple
+          - dockerfile
+          # - external
+          # - julia
+          # - memlimit
+          # - nix
+          # - pipfile
+          # - r
+          - unit
+          - venv/default
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v2
+
+      - name: Setup Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python_version }}
+
+      - name: Cache pip dependencies
+        uses: actions/cache@v2
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('dev-requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install
+        run: |
+          pip install -r dev-requirements.txt
+          # Make a wheel and install it to catch possible issues with releases
+          python setup.py bdist_wheel
+          pip install dist/*.whl
+          pip freeze
+
+      - name: Fetch repo2docker tests
+        run: |
+          git clone --depth 1 --single-branch https://github.com/jupyter/repo2docker tests-repo2docker
+          for d in ./tests-repo2docker/tests/*/; do
+            if [ "${d##*tests/}" != "unit/" ]; then
+              cp -a $d tests
+            fi
+          done
+
+      # 2021-02-21: Workarounds to avoid podman warnings that interrupt test output
+      # dbus-launch https://github.com/containers/podman/issues/9353
+      - name: Work around podman warning output
+        run: |
+          sudo apt-get update && sudo apt-get install -y -q dbus-x11
+          sudo sed -i -re 's/[# ]*cgroup_manager = .+/cgroup_manager = "cgroupfs"/' /etc/containers/containers.conf
+          sudo apt-get install --only-upgrade podman
+
+      - name: Run tests
+        run: pytest -v tests/${{ matrix.repo_type }}
