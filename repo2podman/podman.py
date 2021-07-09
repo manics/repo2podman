@@ -150,30 +150,15 @@ class PodmanContainer(Container):
             log_command.append("--timestamps")
         if since:
             log_command.extend(["--since", since])
+
         if stream:
 
             def iter_logs(cid):
-                exited = False
-                try:
-                    for line in exec_podman_stream(["attach", "--no-stdin", cid]):
-                        if exited or line.startswith(
-                            "Error: you can only attach to running containers"
-                        ):
-                            # Swallow all output to ensure process exited
-                            print(line)
-                            exited = True
-                            continue
-                        else:
-                            yield line.encode("utf-8")
-                except CalledProcessError as e:
-                    print(e, line.encode("utf-8"))
-                    if e.returncode == 125 and exited:
-                        for line in exec_podman_stream(log_command + [self.id]):
-                            yield line.encode("utf-8")
-                    else:
-                        raise
+                for line in exec_podman_stream(log_command + ["--follow", cid]):
+                    yield line.encode("utf-8")
 
             return iter_logs(self.id)
+
         return "\n".join(exec_podman(log_command + [self.id], capture="both")).encode(
             "utf-8"
         )
