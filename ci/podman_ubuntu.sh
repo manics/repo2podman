@@ -22,4 +22,4 @@ if [ -d /home/vagrant ]; then
 fi
 # python3 -mvenv ~/venv
 # . ~/venv/bin/activate
-# pip install -r /repo2docker-podman/dev-requirements.txt git+https://github.com/manics/repo2docker.git@abstractengine
+# pip install -r /repo2docker-podman/dev-requirements.txt git+https://github.com/jupyterhub/repo2docker.git@master

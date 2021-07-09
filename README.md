@@ -8,7 +8,7 @@
 
 This plugin is still in development and relies on [unreleased features of repo2docker](https://github.com/jupyter/repo2docker/pull/848).
 
-    pip install -U git+https://github.com/manics/repo2docker.git@abstractengine
+    pip install -U git+https://github.com/jupyterhub/repo2docker.git@master
     pip install -U git+https://github.com/manics/repo2docker-podman.git@main
 
 ## Running
