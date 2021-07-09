@@ -144,7 +144,12 @@ class PodmanContainer(Container):
         self.attrs = d[0]
         assert self.attrs["Id"].startswith(self.id)
 
-    def logs(self, *, stream=False):
+    def logs(self, *, stream=False, timestamps=False, since=None):
+        log_command = ["logs"]
+        if timestamps:
+            log_command.append("--timestamps")
+        if since:
+            log_command.extend(["--since", since])
         if stream:
 
             def iter_logs(cid):
@@ -163,13 +168,15 @@ class PodmanContainer(Container):
                 except CalledProcessError as e:
                     print(e, line.encode("utf-8"))
                     if e.returncode == 125 and exited:
-                        for line in exec_podman_stream(["logs", self.id]):
+                        for line in exec_podman_stream(log_command + [self.id]):
                             yield line.encode("utf-8")
                     else:
                         raise
 
             return iter_logs(self.id)
-        return "\n".join(exec_podman(["logs", self.id], capture="both")).encode("utf-8")
+        return "\n".join(exec_podman(log_command + [self.id], capture="both")).encode(
+            "utf-8"
+        )
 
     def kill(self, *, signal="KILL"):
         exec_podman(["kill", "--signal", signal, self.id], capture=None)

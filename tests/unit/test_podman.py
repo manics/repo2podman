@@ -13,9 +13,16 @@ def test_run():
     client = PodmanEngine(parent=None)
     c = client.run(BUSYBOX, command=["id", "-un"])
     assert isinstance(c, PodmanContainer)
+
     # If image was pulled the progress logs will also be present
     out = c.logs().splitlines()
     assert out[-1].strip() == b"root", out
+
+    out = c.logs(timestamps=True).splitlines()
+    timestamp, msg = out[-1].strip().split(b" ", 1)
+    assert re.match(br"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\S+", timestamp)
+    assert msg == b"root", out
+
     c.remove()
     with pytest.raises(PodmanCommandError) as exc:
         c.reload()
