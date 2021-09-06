@@ -5,7 +5,7 @@ setuptools.setup(
     # https://github.com/jupyter/repo2docker/pull/848
     install_requires=[
         "jupyter-repo2docker @ "
-        "git+https://github.com/jupyterhub/repo2docker.git@master"
+        "git+https://github.com/jupyterhub/repo2docker.git@main"
     ],
     python_requires=">=3.5",
     author="Simon Li",
