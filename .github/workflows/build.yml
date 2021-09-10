@@ -55,7 +55,7 @@ jobs:
         run: |
           pip install -r dev-requirements.txt
           # Make a wheel and install it to catch possible issues with releases
-          python setup.py bdist_wheel
+          python -m build --wheel
           pip install dist/*.whl
           pip freeze
 
@@ -70,3 +70,24 @@ jobs:
 
       - name: Run tests
         run: pytest -v tests/${{ matrix.repo_type }}
+
+  # https://packaging.python.org/guides/publishing-package-distribution-releases-using-github-actions-ci-cd-workflows/
+  publish-pypi:
+    name: Pypi
+    needs:
+      # Only publish if other jobs passed
+      - lint
+      - test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-python@v2
+      - name: Install pypa/build
+        run: python -m pip install build
+      - name: Build a binary wheel and a source tarball
+        run: python -m build --sdist --wheel --outdir dist/
+      - name: Publish to PyPI
+        if: startsWith(github.ref, 'refs/tags')
+        uses: pypa/gh-action-pypi-publish@v1.3.0
+        with:
+          password: ${{ secrets.PYPI_API_TOKEN }}
