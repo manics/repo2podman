@@ -1,11 +1,11 @@
 import setuptools
 
 setuptools.setup(
-    name="repo2docker-podman",
+    name="repo2podman",
     install_requires=["jupyter-repo2docker>=2021.08.0"],
     python_requires=">=3.6",
     author="Simon Li",
-    url="https://github.com/manics/repo2docker-podman",
+    url="https://github.com/manics/repo2podman",
     project_urls={"Documentation": "https://repo2docker.readthedocs.io"},
     keywords="reproducible science environments docker",
     description="Repo2docker Podman extension",
