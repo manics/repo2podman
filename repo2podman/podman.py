@@ -1,6 +1,7 @@
 # Use Podman instead of Docker
 from functools import partial
 import json
+import logging
 from queue import Queue, Empty
 import re
 from subprocess import CalledProcessError, PIPE, STDOUT, Popen
@@ -17,6 +18,25 @@ from repo2docker.engine import (
 
 
 DEFAULT_READ_TIMEOUT = 1
+
+# Use repo2docker logger so that we use custom formatters
+# https://github.com/jupyterhub/repo2docker/blob/2021.08.0/repo2docker/app.py#L483-L486
+
+
+def log_debug(m):
+    log = logging.getLogger("repo2docker")
+    if isinstance(m, list):
+        log.debug("".join(m))
+    else:
+        log.debug(m)
+
+
+def log_info(m):
+    log = logging.getLogger("repo2docker")
+    if isinstance(m, list):
+        log.info("".join(m))
+    else:
+        log.info(m)
 
 
 class ProcessTerminated(CalledProcessError):
@@ -156,7 +176,7 @@ def exec_podman(args, *, capture, read_timeout=None, break_callback=None):
     it from the exit code of the container.
     """
     cmd = ["podman"] + args
-    print("Executing: {}".format(" ".join(cmd)))
+    log_debug("Executing: {}".format(" ".join(cmd)))
     try:
         p = execute_cmd(cmd, capture=capture, break_callback=break_callback)
     except CalledProcessError as e:
@@ -165,7 +185,7 @@ def exec_podman(args, *, capture, read_timeout=None, break_callback=None):
     lines = []
     try:
         for line in p:
-            print(line)
+            # log_debug(line)
             lines.append(line)
         return lines
     except CalledProcessError as e:
@@ -179,7 +199,7 @@ def exec_podman_stream(args, *, read_timeout=None, break_callback=None):
     Passes on CalledProcessError if exit code is not 0
     """
     cmd = ["podman"] + args
-    print("Executing: {}".format(" ".join(cmd)))
+    log_debug("Executing: {}".format(" ".join(cmd)))
     p = execute_cmd(cmd, capture="both", break_callback=break_callback)
     # This will stream the output and also pass any exceptions to the caller
     yield from p
@@ -237,16 +257,22 @@ class PodmanContainer(Container):
         )
 
     def kill(self, *, signal="KILL"):
-        exec_podman(["kill", "--signal", signal, self.id], capture=None)
+        lines = exec_podman(["kill", "--signal", signal, self.id], capture="stdout")
+        log_info(lines)
 
     def remove(self):
-        exec_podman(["rm", self.id], capture=None)
+        lines = exec_podman(["rm", self.id], capture="stdout")
+        log_info(lines)
 
     def stop(self, *, timeout=10):
-        exec_podman(["stop", "--timeout", str(timeout), self.id], capture=None)
+        lines = exec_podman(
+            ["stop", "--timeout", str(timeout), self.id], capture="stdout"
+        )
+        log_info(lines)
 
     def wait(self):
-        exec_podman(["wait", self.id], capture=None)
+        lines = exec_podman(["wait", self.id], capture="stdout")
+        log_info(lines)
 
     @property
     def exitcode(self):
@@ -265,7 +291,8 @@ class PodmanEngine(ContainerEngine):
     def __init__(self, *, parent):
         super().__init__(parent=parent)
 
-        exec_podman(["info"], capture=None)
+        lines = exec_podman(["info"], capture="stdout")
+        log_debug(lines)
 
     default_transport = Unicode(
         "docker://docker.io/",
@@ -288,7 +315,7 @@ class PodmanEngine(ContainerEngine):
         path="",
         **kwargs
     ):
-        print("podman build")
+        log_debug("podman build")
         cmdargs = ["build"]
 
         bargs = buildargs or {}
@@ -346,9 +373,10 @@ class PodmanEngine(ContainerEngine):
             with TemporaryDirectory() as builddir:
                 tarf = tarfile.open(fileobj=fileobj)
                 tarf.extractall(builddir)
-                print(builddir)
-                for line in execute_cmd(["ls", "-lRa", builddir]):
-                    print(line)
+                log_debug(builddir)
+
+                lines = execute_cmd(["ls", "-lRa", builddir], capture="stdout")
+                log_debug(lines)
                 for line in exec_podman_stream(cmdargs + [builddir]):
                     yield line
         else:
@@ -394,7 +422,7 @@ class PodmanEngine(ContainerEngine):
         tags = d[0]["RepoTags"]
         config = d[0]["Config"]
         if "WorkingDir" not in config:
-            print("inspect_image: WorkingDir not found, setting to /")
+            log_debug("inspect_image: WorkingDir not found, setting to /")
             config["WorkingDir"] = "/"
         image = Image(tags=tags, config=config)
         return image
@@ -424,7 +452,7 @@ class PodmanEngine(ContainerEngine):
         volumes=None,
         **kwargs
     ):
-        print("podman run")
+        log_debug("podman run")
         cmdargs = ["run"]
 
         if publish_all_ports:
