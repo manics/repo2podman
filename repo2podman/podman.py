@@ -313,7 +313,7 @@ class PodmanEngine(ContainerEngine):
         dockerfile="",
         fileobj=None,
         path="",
-        **kwargs
+        **kwargs,
     ):
         log_debug("podman build")
         cmdargs = ["build"]
@@ -450,7 +450,7 @@ class PodmanEngine(ContainerEngine):
         publish_all_ports=False,
         remove=False,
         volumes=None,
-        **kwargs
+        **kwargs,
     ):
         log_debug("podman run")
         cmdargs = ["run"]
