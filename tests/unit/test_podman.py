@@ -2,11 +2,42 @@
 
 import pytest
 import re
-from repo2podman.podman import PodmanCommandError, PodmanContainer, PodmanEngine
+from repo2podman.podman import (
+    execute_cmd,
+    PodmanCommandError,
+    PodmanContainer,
+    PodmanEngine,
+    ProcessTerminated,
+)
 from time import sleep
 
 
 BUSYBOX = "docker.io/library/busybox"
+
+
+class Counter:
+    def __init__(self):
+        self.n = 0
+
+    def inc(self):
+        self.n += 1
+        return self.n
+
+
+def test_execute_cmd():
+    r = execute_cmd(["echo", "a"], capture="both", break_callback=None)
+    assert list(r) == ["a\n"]
+
+    c = Counter()
+    with pytest.raises(ProcessTerminated):
+        r = execute_cmd(
+            ["sleep", "1m"],
+            capture="both",
+            read_timeout=1,
+            break_callback=lambda: c.inc() == 2,
+        )
+        list(r)
+    assert c.n == 2
 
 
 def test_run():
@@ -32,9 +63,9 @@ def test_run():
 def test_run_autoremove():
     client = PodmanEngine(parent=None)
     # Need to sleep in container to prevent race condition
-    c = client.run(BUSYBOX, command=["sh", "-c", "sleep 1; id -un"], remove=True)
+    c = client.run(BUSYBOX, command=["sh", "-c", "sleep 2; id -un"], remove=True)
     # Sleep to ensure container has exited
-    sleep(2)
+    sleep(3)
     with pytest.raises(PodmanCommandError) as exc:
         c.reload()
     assert "".join(exc.value.output).strip() == "[]"
