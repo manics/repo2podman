@@ -63,9 +63,9 @@ def test_run():
 def test_run_autoremove():
     client = PodmanEngine(parent=None)
     # Need to sleep in container to prevent race condition
-    c = client.run(BUSYBOX, command=["sh", "-c", "sleep 1; id -un"], remove=True)
+    c = client.run(BUSYBOX, command=["sh", "-c", "sleep 2; id -un"], remove=True)
     # Sleep to ensure container has exited
-    sleep(2)
+    sleep(3)
     with pytest.raises(PodmanCommandError) as exc:
         c.reload()
     assert "".join(exc.value.output).strip() == "[]"
