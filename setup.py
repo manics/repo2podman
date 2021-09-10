@@ -3,11 +3,8 @@ import setuptools
 setuptools.setup(
     name="repo2docker-podman",
     # https://github.com/jupyter/repo2docker/pull/848
-    install_requires=[
-        "jupyter-repo2docker @ "
-        "git+https://github.com/jupyterhub/repo2docker.git@main"
-    ],
-    python_requires=">=3.5",
+    install_requires=["jupyter-repo2docker>=2021.08.0"],
+    python_requires=">=3.6",
     author="Simon Li",
     url="https://github.com/manics/repo2docker-podman",
     project_urls={"Documentation": "https://repo2docker.readthedocs.io"},
