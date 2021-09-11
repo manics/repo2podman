@@ -59,7 +59,7 @@ def execute_cmd(cmd, capture=None, *, read_timeout=None, break_callback=None, **
     break_callback: A callable that returns a boolean indicating whether to
     stop execution.
     See https://stackoverflow.com/a/4896288
-    This is needed to work around https://github.com/manics/repo2docker-podman/issues/6
+    This is needed to work around https://github.com/manics/repo2podman/issues/6
     If a process is terminated due to break_callback then ProcessTerminated is thrown
 
     Modified version of repo2docker.utils.execute_cmd
