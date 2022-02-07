@@ -313,6 +313,7 @@ class PodmanEngine(ContainerEngine):
         dockerfile="",
         fileobj=None,
         path="",
+        labels=None,
         **kwargs,
     ):
         log_debug("podman build")
@@ -356,6 +357,10 @@ class PodmanEngine(ContainerEngine):
 
         if dockerfile:
             cmdargs.extend(["--file", dockerfile])
+
+        if labels:
+            for k, v in labels.items():
+                cmdargs.extend(["--label", "{}={}".format(k, v)])
 
         # TODO: what to do with these?
         # for ignore in ("custom_context", "decode"):
