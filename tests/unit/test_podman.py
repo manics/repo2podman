@@ -51,7 +51,7 @@ def test_run():
 
     out = c.logs(timestamps=True).splitlines()
     timestamp, msg = out[-1].strip().split(b" ", 1)
-    assert re.match(br"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\S+", timestamp)
+    assert re.match(rb"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\S+", timestamp)
     assert msg == b"root", out
 
     c.remove()
