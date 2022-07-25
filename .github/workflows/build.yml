@@ -91,3 +91,54 @@ jobs:
         uses: pypa/gh-action-pypi-publish@v1.3.0
         with:
           password: ${{ secrets.PYPI_API_TOKEN }}
+
+  container:
+    name: Build container
+    needs:
+      # Only publish if other jobs passed
+      - lint
+      - test
+    runs-on: ubuntu-latest
+    env:
+      REGISTRY: ghcr.io
+      IMAGE_NAME: ${{ github.repository }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+
+      - name: Get short reference (e.g. branch or tag)
+        # If there are multiple / (e.g. refs/prs/123/merge) use the last component
+        run: |
+          echo "SHORT_REF=${GITHUB_REF##refs*/}" >> $GITHUB_ENV
+
+      # https://www.redhat.com/en/blog/build-ubi-containers-github-actions-buildah-and-podman
+      - name: Buildah Action
+        id: build-image
+        uses: redhat-actions/buildah-build@v2
+        with:
+          image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: ${{ env.SHORT_REF }}
+          containerfiles: |
+            ./Dockerfile
+
+      - name: Log in to the GitHub Container registry
+        if: startsWith(github.ref, 'refs/tags/') || (github.ref == 'refs/heads/main')
+        uses: redhat-actions/podman-login@v1
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Push to GitHub Container Repository
+        if: startsWith(github.ref, 'refs/tags/') || (github.ref == 'refs/heads/main')
+        uses: redhat-actions/push-to-registry@v2
+        with:
+          image: ${{ steps.build-image.outputs.image }}
+          tags: ${{ steps.build-image.outputs.tags }}
+          registry: ${{ env.REGISTRY }}
+
+      - name: Run repo2docker image
+        run: |
+          podman run ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.SHORT_REF }} repo2docker --version
