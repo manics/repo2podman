@@ -109,8 +109,9 @@ jobs:
           fetch-depth: 0
 
       - name: Get short reference (e.g. branch or tag)
+        # If there are multiple / (e.g. refs/prs/123/merge) use the last component
         run: |
-          echo "SHORT_REF=${GITHUB_REF#refs/*/}" >> $GITHUB_ENV
+          echo "SHORT_REF=${GITHUB_REF##refs*/}" >> $GITHUB_ENV
 
       # https://www.redhat.com/en/blog/build-ubi-containers-github-actions-buildah-and-podman
       - name: Buildah Action
