@@ -1,11 +1,21 @@
-ARG REPO2DOCKER_VERSION=2022.02.0-60.g5b688f4
-FROM quay.io/jupyterhub/repo2docker:$REPO2DOCKER_VERSION
+ARG PODMAN_VERSION=v4.1.1
+FROM quay.io/podman/stable:$PODMAN_VERSION
 
-RUN sed -i s/v3.15/v3.16/ /etc/apk/repositories \
-    && apk add --no-cache podman
+RUN dnf install -y -q \
+      git \
+      git-lfs \
+      mercurial \
+      python3-pip && \
+    dnf clean all
 
-COPY . /tmp/repo2podman
-RUN pip3 install --no-cache-dir \
-      /tmp/repo2podman \
-    && rm -rf /tmp/repo2podman \
-    && pip3 list
+RUN pip install \
+      hg-evolve \
+      jupyter-repo2docker
+
+# To be compatible with Docker:
+RUN sed -i -r \
+    -e 's/unqualified-search-registries .+/unqualified-search-registries = ["docker.io"]/' \
+    /etc/containers/registries.conf
+
+ADD . /repo2podman
+RUN pip install /repo2podman
