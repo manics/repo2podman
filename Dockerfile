@@ -17,5 +17,9 @@ RUN sed -i -r \
     -e 's/unqualified-search-registries .+/unqualified-search-registries = ["docker.io"]/' \
     /etc/containers/registries.conf
 
+# add git-credential helper
+COPY ./helpers/git-credential-env /usr/local/bin/git-credential-env
+RUN git config --system credential.helper env
+
 ADD . /repo2podman
 RUN pip install /repo2podman
