@@ -61,7 +61,11 @@ jobs:
 
       - name: Fetch repo2docker tests
         run: |
-          git clone --depth 1 --single-branch https://github.com/jupyter/repo2docker tests-repo2docker
+          # Tests need to match the r2d version, need to convert YYYY.M.N to YYYY.MM.N
+          R2D_PY_VERSION=$(grep jupyter-repo2docker== dev-requirements.txt | cut -d= -f3)
+          GIT_TAG=$(echo $R2D_PY_VERSION | sed -re 's/\.([[:digit:]])\./.0\1./')
+          echo "Cloning repo2docker test from tag: $GIT_TAG"
+          git clone --depth 1 --branch=$GIT_TAG https://github.com/jupyter/repo2docker tests-repo2docker
           for d in ./tests-repo2docker/tests/*/; do
             if [ "${d##*tests/}" != "unit/" ]; then
               cp -a $d tests
