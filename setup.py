@@ -2,7 +2,7 @@ import setuptools
 
 setuptools.setup(
     name="repo2podman",
-    install_requires=["jupyter-repo2docker>=2021.08.0"],
+    install_requires=["jupyter-repo2docker>=2021.08.0", "docker-image-py"],
     python_requires=">=3.6",
     author="Simon Li",
     url="https://github.com/manics/repo2podman",

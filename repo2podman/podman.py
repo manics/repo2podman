@@ -10,6 +10,8 @@ from tempfile import TemporaryDirectory
 from threading import Thread
 from traitlets import Unicode
 
+from docker_image.reference import Reference
+
 from repo2docker.engine import (
     Container,
     ContainerEngine,
@@ -295,7 +297,7 @@ class PodmanEngine(ContainerEngine):
         log_debug(lines)
 
     default_transport = Unicode(
-        "docker://docker.io/",
+        "docker://",
         help="""
         Default transport image protocol if not specified in the image tag
         """,
@@ -436,7 +438,9 @@ class PodmanEngine(ContainerEngine):
         if re.match(r"\w+://", image_spec):
             destination = image_spec
         else:
-            destination = self.default_transport + image_spec
+            ref = Reference.parse_normalized_named(image_spec)
+            destination = self.default_transport + ref.string()
+
         args = ["push", image_spec, destination]
 
         def iter_out():
