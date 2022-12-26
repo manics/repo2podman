@@ -23,7 +23,7 @@ jobs:
           # Only test a subset of the repo2docker tests since we're testing podman,
           # not the full repo2docker functionality
           - base
-          - conda/simple
+          - conda/py310-requirements-file
           - dockerfile
           # - external
           # - julia
