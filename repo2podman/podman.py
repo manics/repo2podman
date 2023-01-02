@@ -316,6 +316,7 @@ class PodmanEngine(ContainerEngine):
         fileobj=None,
         path="",
         labels=None,
+        platform=None,
         **kwargs,
     ):
         log_debug("podman build")
@@ -363,6 +364,9 @@ class PodmanEngine(ContainerEngine):
         if labels:
             for k, v in labels.items():
                 cmdargs.extend(["--label", "{}={}".format(k, v)])
+
+        if platform:
+            cmdargs.extend(["--platform", platform])
 
         # TODO: what to do with these?
         # for ignore in ("custom_context", "decode"):
