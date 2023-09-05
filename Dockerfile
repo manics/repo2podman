@@ -1,4 +1,4 @@
-ARG PODMAN_VERSION=v4.1.1
+ARG PODMAN_VERSION=v4.6.1
 FROM quay.io/podman/stable:$PODMAN_VERSION
 
 RUN dnf install -y -q \
