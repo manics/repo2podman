@@ -162,7 +162,7 @@ class PodmanCommandError(Exception):
         return s
 
 
-def exec_podman(args, *, capture, read_timeout=None, break_callback=None):
+def exec_podman(args, *, capture, exe="podman", read_timeout=None, break_callback=None):
     """
     Execute a podman command
     capture:
@@ -177,7 +177,7 @@ def exec_podman(args, *, capture, read_timeout=None, break_callback=None):
     Note podman usually exits with code 125 if a podman error occurred to differentiate
     it from the exit code of the container.
     """
-    cmd = ["podman"] + args
+    cmd = [exe] + args
     log_debug("Executing: {}".format(" ".join(cmd)))
     try:
         p = execute_cmd(cmd, capture=capture, break_callback=break_callback)
@@ -194,13 +194,13 @@ def exec_podman(args, *, capture, read_timeout=None, break_callback=None):
         raise PodmanCommandError(e, lines) from None
 
 
-def exec_podman_stream(args, *, read_timeout=None, break_callback=None):
+def exec_podman_stream(args, *, exe="podman", read_timeout=None, break_callback=None):
     """
     Execute a podman command and stream the output
 
     Passes on CalledProcessError if exit code is not 0
     """
-    cmd = ["podman"] + args
+    cmd = [exe] + args
     log_debug("Executing: {}".format(" ".join(cmd)))
     p = execute_cmd(cmd, capture="both", break_callback=break_callback)
     # This will stream the output and also pass any exceptions to the caller
@@ -208,14 +208,16 @@ def exec_podman_stream(args, *, read_timeout=None, break_callback=None):
 
 
 class PodmanContainer(Container):
-    def __init__(self, cid):
+    def __init__(self, cid, podman_executable="podman"):
         self.id = cid
+        self._podman_executable = podman_executable
         self.reload()
 
     def reload(self):
         lines = exec_podman(
             ["inspect", "--type", "container", "--format", "json", self.id],
             capture="stdout",
+            exe=self._podman_executable,
         )
         d = json.loads("".join(lines))
         assert len(d) == 1
@@ -225,7 +227,9 @@ class PodmanContainer(Container):
     def _exited(self):
         status = "\n".join(
             exec_podman(
-                ["inspect", "--format={{.State.Status}}", self.id], capture="both"
+                ["inspect", "--format={{.State.Status}}", self.id],
+                capture="both",
+                exe=self._podman_executable,
             )
         )
         return status.strip() == "exited"
@@ -244,6 +248,7 @@ class PodmanContainer(Container):
                 try:
                     for line in exec_podman_stream(
                         log_command + ["--follow", cid],
+                        exe=self._podman_executable,
                         read_timeout=2,
                         break_callback=self._exited,
                     ):
@@ -254,26 +259,38 @@ class PodmanContainer(Container):
 
             return iter_logs(self.id)
 
-        return "\n".join(exec_podman(log_command + [self.id], capture="both")).encode(
-            "utf-8"
-        )
+        return "\n".join(
+            exec_podman(
+                log_command + [self.id], capture="both", exe=self._podman_executable
+            )
+        ).encode("utf-8")
 
     def kill(self, *, signal="KILL"):
-        lines = exec_podman(["kill", "--signal", signal, self.id], capture="stdout")
+        lines = exec_podman(
+            ["kill", "--signal", signal, self.id],
+            capture="stdout",
+            exe=self._podman_executable,
+        )
         log_info(lines)
 
     def remove(self):
-        lines = exec_podman(["rm", self.id], capture="stdout")
+        lines = exec_podman(
+            ["rm", self.id], capture="stdout", exe=self._podman_executable
+        )
         log_info(lines)
 
     def stop(self, *, timeout=10):
         lines = exec_podman(
-            ["stop", "--timeout", str(timeout), self.id], capture="stdout"
+            ["stop", "--timeout", str(timeout), self.id],
+            capture="stdout",
+            exe=self._podman_executable,
         )
         log_info(lines)
 
     def wait(self):
-        lines = exec_podman(["wait", self.id], capture="stdout")
+        lines = exec_podman(
+            ["wait", self.id], capture="stdout", exe=self._podman_executable
+        )
         log_info(lines)
 
     @property
@@ -290,12 +307,6 @@ class PodmanEngine(ContainerEngine):
     Podman container engine
     """
 
-    def __init__(self, *, parent):
-        super().__init__(parent=parent)
-
-        lines = exec_podman(["info"], capture="stdout")
-        log_debug(lines)
-
     default_transport = Unicode(
         "docker://",
         help="""
@@ -303,6 +314,21 @@ class PodmanEngine(ContainerEngine):
         """,
         config=True,
     )
+
+    podman_executable = Unicode(
+        "podman",
+        help="""The podman executable to use for all commands.
+        For example, you could use an alternative podman/docker compatible command.
+        Defaults to `podman` on the PATH.
+        """,
+        config=True,
+    )
+
+    def __init__(self, *, parent):
+        super().__init__(parent=parent)
+
+        lines = exec_podman(["info"], capture="stdout", exe=self.podman_executable)
+        log_debug(lines)
 
     def build(
         self,
@@ -388,12 +414,16 @@ class PodmanEngine(ContainerEngine):
 
                 lines = execute_cmd(["ls", "-lRa", builddir], capture="stdout")
                 log_debug(lines)
-                for line in exec_podman_stream(cmdargs + [builddir]):
+                for line in exec_podman_stream(
+                    cmdargs + [builddir], exe=self.podman_executable
+                ):
                     yield line
         else:
             builddir = path
             assert path
-            for line in exec_podman_stream(cmdargs + [builddir]):
+            for line in exec_podman_stream(
+                cmdargs + [builddir], exe=self.podman_executable
+            ):
                 yield line
 
     def images(self):
@@ -405,7 +435,11 @@ class PodmanEngine(ContainerEngine):
                     if tag.startswith("localhost/"):
                         yield tag[10:]
 
-        lines = exec_podman(["image", "list", "--format", "json"], capture="stdout")
+        lines = exec_podman(
+            ["image", "list", "--format", "json"],
+            capture="stdout",
+            exe=self.podman_executable,
+        )
         lines = "".join(lines)
 
         if lines.strip():
@@ -426,7 +460,9 @@ class PodmanEngine(ContainerEngine):
 
     def inspect_image(self, image):
         lines = exec_podman(
-            ["inspect", "--type", "image", "--format", "json", image], capture="stdout"
+            ["inspect", "--type", "image", "--format", "json", image],
+            capture="stdout",
+            exe=self.podman_executable,
         )
         d = json.loads("".join(lines))
         assert len(d) == 1
@@ -448,7 +484,7 @@ class PodmanEngine(ContainerEngine):
         args = ["push", image_spec, destination]
 
         def iter_out():
-            for line in exec_podman_stream(args):
+            for line in exec_podman_stream(args, exe=self.podman_executable):
                 yield line
 
         return iter_out()
@@ -499,7 +535,7 @@ class PodmanEngine(ContainerEngine):
             raise ValueError("Additional kwargs not supported")
 
         cmdline = cmdargs + [image_spec] + command
-        lines = exec_podman(cmdline, capture="stdout")
+        lines = exec_podman(cmdline, capture="stdout", exe=self.podman_executable)
 
         # Note possible race condition:
         # If the container exits immediately and remove=True the next line may fail
@@ -507,4 +543,6 @@ class PodmanEngine(ContainerEngine):
 
         # If image was pulled the progress logs will also be present
         # assert len(lines) == 1, lines
-        return PodmanContainer(lines[-1].strip())
+        return PodmanContainer(
+            lines[-1].strip(), podman_executable=self.podman_executable
+        )
