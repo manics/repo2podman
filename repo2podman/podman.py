@@ -525,10 +525,11 @@ class PodmanEngine(ContainerEngine):
             cmdargs.append("--publish-all")
 
         ports = ports or {}
+        # container-port/protocol:host-port
         for k, v in ports.items():
             if k.endswith("/tcp"):
                 k = k[:-4]
-            cmdargs.extend(["--publish", "{}:{}".format(k, v)])
+            cmdargs.extend(["--publish", "{}:{}".format(v, k)])
 
         cmdargs.append("--detach")
 
