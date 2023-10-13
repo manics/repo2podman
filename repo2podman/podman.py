@@ -342,6 +342,8 @@ class PodmanEngine(ContainerEngine):
         config=True,
     )
 
+    podman_loglevel = Unicode("", help="Podman log level", config=True)
+
     def __init__(self, *, parent):
         super().__init__(parent=parent)
 
@@ -541,8 +543,8 @@ class PodmanEngine(ContainerEngine):
         if remove:
             cmdargs.append("--rm")
 
-        # TODO: Make this configurable via a config traitlet
-        cmdargs.append("--log-level=debug")
+        if self.podman_loglevel:
+            cmdargs.append(f"--log-level={self.podman_loglevel}")
 
         command = command or []
 

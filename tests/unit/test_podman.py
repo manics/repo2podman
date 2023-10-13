@@ -143,6 +143,7 @@ def test_custom_executable(tmp_path):
 
     client = PodmanEngine(parent=None)
     client.podman_executable = str(exe)
+    client.podman_loglevel = "debug"
     c = client.run(BUSYBOX, command=["id", "-un"])
     assert isinstance(c, PodmanContainer)
     assert c._podman_executable == str(exe)
