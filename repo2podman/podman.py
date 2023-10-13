@@ -207,6 +207,24 @@ def exec_podman_stream(args, *, exe="podman", read_timeout=None, break_callback=
     yield from p
 
 
+def _parse_json_or_jsonl(lines):
+    """
+    Parse an array of lines as JSON or JSONL
+    """
+    is_jsonl = True
+    for line in lines:
+        line = line.strip()
+        if not line or line[0] != "{" or line[-1] != "}":
+            is_jsonl = False
+            break
+    if is_jsonl:
+        return [json.loads(line) for line in lines]
+    lines = "".join(lines)
+    if lines.strip():
+        return json.loads(lines)
+    return []
+
+
 class PodmanContainer(Container):
     def __init__(self, cid, podman_executable="podman"):
         self.id = cid
@@ -219,7 +237,7 @@ class PodmanContainer(Container):
             capture="stdout",
             exe=self._podman_executable,
         )
-        d = json.loads("".join(lines))
+        d = _parse_json_or_jsonl(lines)
         assert len(d) == 1
         self.attrs = d[0]
         assert self.attrs["Id"].startswith(self.id)
@@ -440,23 +458,19 @@ class PodmanEngine(ContainerEngine):
             capture="stdout",
             exe=self.podman_executable,
         )
-        lines = "".join(lines)
+        # Podman returns an array, nerdctl returns JSONL
+        images = _parse_json_or_jsonl(lines)
 
-        if lines.strip():
-            images = json.loads(lines)
-            try:
-                return [
-                    Image(tags=list(remove_local(image["names"]))) for image in images
-                ]
-            except KeyError:
-                # Podman 1.9.1+
-                # Some images may not have a name
-                return [
-                    Image(tags=list(remove_local(image["Names"])))
-                    for image in images
-                    if "Names" in image
-                ]
-        return []
+        try:
+            return [Image(tags=list(remove_local(image["names"]))) for image in images]
+        except KeyError:
+            # Podman 1.9.1+
+            # Some images may not have a name
+            return [
+                Image(tags=list(remove_local(image["Names"])))
+                for image in images
+                if "Names" in image
+            ]
 
     def inspect_image(self, image):
         lines = exec_podman(
@@ -464,7 +478,7 @@ class PodmanEngine(ContainerEngine):
             capture="stdout",
             exe=self.podman_executable,
         )
-        d = json.loads("".join(lines))
+        d = _parse_json_or_jsonl(lines)
         assert len(d) == 1
         tags = d[0]["RepoTags"]
         config = d[0]["Config"]
