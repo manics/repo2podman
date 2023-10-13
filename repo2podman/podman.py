@@ -395,7 +395,8 @@ class PodmanEngine(ContainerEngine):
         except KeyError:
             pass
 
-        cmdargs.append("--force-rm")
+        # Disable for better compatibility with other CLIs
+        # cmdargs.append("--force-rm")
 
         cmdargs.append("--rm")
 
