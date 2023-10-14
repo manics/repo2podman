@@ -129,3 +129,37 @@ def test_run_detach_stream_exited():
     c.remove()
     with pytest.raises(PodmanCommandError):
         c.reload()
+
+
+def test_custom_executable(tmp_path):
+    # Use a wrapper script to log commands
+    log = tmp_path.joinpath("log")
+    exe = tmp_path.joinpath("custom_exe.sh")
+    with exe.open("w") as f:
+        f.write("#!/bin/sh\n")
+        f.write(f"echo $@ >> {log}\n")
+        f.write("exec podman $@\n")
+    exe.chmod(0o755)
+
+    client = PodmanEngine(parent=None)
+    client.podman_executable = str(exe)
+    client.podman_loglevel = "debug"
+    c = client.run(BUSYBOX, command=["id", "-un"])
+    assert isinstance(c, PodmanContainer)
+    assert c._podman_executable == str(exe)
+    cid = c.id
+
+    # If image was pulled the progress logs will also be present
+    out = c.logs().splitlines()
+    assert out[-1].strip() == b"root", out
+
+    c.remove()
+
+    with log.open() as f:
+        lines = f.read().splitlines()
+    assert lines == [
+        f"run --detach --log-level=debug {BUSYBOX} id -un",
+        f"inspect --type container --format json {cid}",
+        f"logs {cid}",
+        f"rm {cid}",
+    ]

@@ -15,4 +15,18 @@ Requires Podman 3+.
 
 Simply include `--engine podman` in the arguments to `repo2docker`:
 
-    repo2docker --engine podman repository/to/build
+    repo2docker --engine podman <repository>
+
+### Using a different Podman executable
+
+repo2podman uses the `podman` command line executable, so it should be possible to substitute any other docker/podman compatible command line tool.
+
+For example, `nerdctl`:
+
+    repo2docker --engine podman --PodmanEngine.podman_executable=nerdctl <repository>
+
+`podman-remote`:
+
+    export CONTAINER_HOST=ssh://<user>@<host>/home/<user>/podman.sock
+    export CONTAINER_SSHKEY=$HOME/.ssh/<ssh-private-key>
+    repo2docker --engine=podman --PodmanEngine.podman_executable=podman-remote <repository>
