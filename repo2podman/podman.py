@@ -372,7 +372,6 @@ class PodmanEngine(ContainerEngine):
         for k, v in bargs.items():
             cmdargs.extend(["--build-arg", "{}={}".format(k, v)])
 
-        # podman --cache-from is a NOOP
         if cache_from:
             cmdargs.extend(["--cache-from", ",".join(cache_from)])
 
