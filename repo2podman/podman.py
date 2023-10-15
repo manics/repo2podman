@@ -54,15 +54,29 @@ class ProcessTerminated(CalledProcessError):
         return s
 
 
-def execute_cmd(cmd, capture=None, *, read_timeout=None, break_callback=None, **kwargs):
+def execute_cmd(
+    cmd, capture=None, *, read_timeout=None, break_callback=None, input=None, **kwargs
+):
     """
     Call given command, yielding output line by line if capture is set.
+
+    cmd: [] Command and arguments to execute
+
+    capture:
+        "stdout": capture and return stdout
+        "stderr": capture and return stderr
+        "both": capture and return stdout and stderr combined
+        Default: output directly to terminal
+
+    read_timeout:
 
     break_callback: A callable that returns a boolean indicating whether to
     stop execution.
     See https://stackoverflow.com/a/4896288
     This is needed to work around https://github.com/manics/repo2podman/issues/6
     If a process is terminated due to break_callback then ProcessTerminated is thrown
+
+    input: Optional short string to pass to stdin
 
     Modified version of repo2docker.utils.execute_cmd
     that allows capturing of stdout, stderr or both.
@@ -80,10 +94,19 @@ def execute_cmd(cmd, capture=None, *, read_timeout=None, break_callback=None, **
     elif capture is not None:
         raise ValueError("Invalid capture argument: {}".format(capture))
 
+    if input is not None:
+        kwargs["stdin"] = PIPE
+
     if read_timeout is None:
         read_timeout = DEFAULT_READ_TIMEOUT
 
     proc = Popen(cmd, **kwargs)
+
+    if input is not None:
+        # Should we check for exceptions/errors?
+        # https://github.com/python/cpython/blob/3.10/Lib/subprocess.py#L1085-L1108
+        proc.stdin.write(input.encode("utf8"))
+        proc.stdin.close()
 
     if not capture:
         # not capturing output, let subprocesses talk directly to terminal
@@ -162,7 +185,9 @@ class PodmanCommandError(Exception):
         return s
 
 
-def exec_podman(args, *, capture, exe="podman", read_timeout=None, break_callback=None):
+def exec_podman(
+    args, *, capture, exe="podman", read_timeout=None, break_callback=None, input=None
+):
     """
     Execute a podman command
     capture:
@@ -180,7 +205,9 @@ def exec_podman(args, *, capture, exe="podman", read_timeout=None, break_callbac
     cmd = [exe] + args
     log_debug("Executing: {}".format(" ".join(cmd)))
     try:
-        p = execute_cmd(cmd, capture=capture, break_callback=break_callback)
+        p = execute_cmd(
+            cmd, capture=capture, break_callback=break_callback, input=input
+        )
     except CalledProcessError as e:
         raise PodmanCommandError(e) from None
     # Need to iterate even if not capturing because execute_cmd is a generator
@@ -490,12 +517,43 @@ class PodmanEngine(ContainerEngine):
         image = Image(tags=tags, config=config)
         return image
 
+    def _login(self, **kwargs):
+        args = ["login"]
+
+        registry = None
+        password = None
+
+        for k, v in kwargs.items():
+            if k == "password":
+                password = v
+            elif k == "registry":
+                registry = v
+            else:
+                args.append(f"--{k}")
+                if v is not None:
+                    args.append(v)
+
+        if password is not None:
+            args.append("--password-stdin")
+        if registry is not None:
+            args.append(registry)
+
+        log_debug(f"podman login to registry {registry}")
+        podman_kwargs = {"capture": "both"}
+        if password is not None:
+            podman_kwargs["input"] = password
+        o = exec_podman(args, **podman_kwargs)
+        log_debug(o)
+
     def push(self, image_spec):
         if re.match(r"\w+://", image_spec):
             destination = image_spec
         else:
             ref = Reference.parse_normalized_named(image_spec)
             destination = self.default_transport + ref.string()
+
+        if self.registry_credentials:
+            self._login(**self.registry_credentials)
 
         args = ["push", image_spec, destination]
 

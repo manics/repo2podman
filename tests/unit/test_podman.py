@@ -28,6 +28,15 @@ def test_execute_cmd():
     r = execute_cmd(["echo", "a"], capture="both", break_callback=None)
     assert list(r) == ["a\n"]
 
+    r = execute_cmd(["echo", "a"], capture="stdout", break_callback=None)
+    assert list(r) == ["a\n"]
+
+    r = execute_cmd(["echo", "a"], capture="stderr", break_callback=None)
+    assert list(r) == []
+
+    r = execute_cmd(["cat"], capture="both", break_callback=None, input="hello\nworld")
+    assert list(r) == ["hello\n", "world"]
+
     c = Counter()
     with pytest.raises(ProcessTerminated):
         r = execute_cmd(
