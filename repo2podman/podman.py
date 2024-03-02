@@ -256,11 +256,12 @@ class PodmanContainer(Container):
     def __init__(self, cid, podman_executable="podman"):
         self.id = cid
         self._podman_executable = podman_executable
+        self.format_arg = "{{json .}}"
         self.reload()
 
     def reload(self):
         lines = exec_podman(
-            ["inspect", "--type", "container", "--format", "json", self.id],
+            ["inspect", "--type", "container", "--format", self.format_arg, self.id],
             capture="stdout",
             exe=self._podman_executable,
         )
@@ -374,6 +375,7 @@ class PodmanEngine(ContainerEngine):
     def __init__(self, *, parent):
         super().__init__(parent=parent)
 
+        self.format_arg = "{{json .}}"
         lines = exec_podman(["info"], capture="stdout", exe=self.podman_executable)
         log_debug(lines)
 
@@ -483,7 +485,7 @@ class PodmanEngine(ContainerEngine):
                         yield tag[10:]
 
         lines = exec_podman(
-            ["image", "list", "--format", "json"],
+            ["image", "list", "--format", self.format_arg],
             capture="stdout",
             exe=self.podman_executable,
         )
@@ -503,7 +505,7 @@ class PodmanEngine(ContainerEngine):
 
     def inspect_image(self, image):
         lines = exec_podman(
-            ["inspect", "--type", "image", "--format", "json", image],
+            ["inspect", "--type", "image", "--format", self.format_arg, image],
             capture="stdout",
             exe=self.podman_executable,
         )
