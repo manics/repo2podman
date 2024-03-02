@@ -66,7 +66,7 @@ def test_run():
     c.remove()
     with pytest.raises(PodmanCommandError) as exc:
         c.reload()
-    assert "".join(exc.value.output).strip() == "[]"
+    assert "".join(exc.value.output).strip() == ""
 
 
 def test_run_autoremove():
@@ -77,7 +77,7 @@ def test_run_autoremove():
     sleep(3)
     with pytest.raises(PodmanCommandError) as exc:
         c.reload()
-    assert "".join(exc.value.output).strip() == "[]"
+    assert "".join(exc.value.output).strip() == ""
 
 
 def test_run_detach_wait():
@@ -93,7 +93,7 @@ def test_run_detach_wait():
     c.remove()
     with pytest.raises(PodmanCommandError) as exc:
         c.reload()
-    assert "".join(exc.value.output).strip() == "[]"
+    assert "".join(exc.value.output).strip() == ""
 
 
 def test_run_detach_nostream():
@@ -146,8 +146,8 @@ def test_custom_executable(tmp_path):
     exe = tmp_path.joinpath("custom_exe.sh")
     with exe.open("w") as f:
         f.write("#!/bin/sh\n")
-        f.write(f"echo $@ >> {log}\n")
-        f.write("exec podman $@\n")
+        f.write(f'echo "$@" >> {log}\n')
+        f.write('exec podman "$@"\n')
     exe.chmod(0o755)
 
     client = PodmanEngine(parent=None)
@@ -168,7 +168,7 @@ def test_custom_executable(tmp_path):
         lines = f.read().splitlines()
     assert lines == [
         f"run --detach --log-level=debug {BUSYBOX} id -un",
-        f"inspect --type container --format json {cid}",
+        f"inspect --type container --format {{{{json .}}}} {cid}",
         f"logs {cid}",
         f"rm {cid}",
     ]

@@ -256,10 +256,7 @@ class PodmanContainer(Container):
     def __init__(self, cid, podman_executable="podman"):
         self.id = cid
         self._podman_executable = podman_executable
-        if podman_executable in ["docker"]:
-            self.format_arg = "{{json .}}"
-        else:
-            self.format_arg = "json"
+        self.format_arg = "{{json .}}"
         self.reload()
 
     def reload(self):
@@ -378,11 +375,7 @@ class PodmanEngine(ContainerEngine):
     def __init__(self, *, parent):
         super().__init__(parent=parent)
 
-        if self.podman_executable in ["docker"]:
-            self.format_arg = "{{json .}}"
-        else:
-            self.format_arg = "json"
-
+        self.format_arg = "{{json .}}"
         lines = exec_podman(["info"], capture="stdout", exe=self.podman_executable)
         log_debug(lines)
 
