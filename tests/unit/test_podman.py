@@ -66,7 +66,8 @@ def test_run():
     c.remove()
     with pytest.raises(PodmanCommandError) as exc:
         c.reload()
-    assert "".join(exc.value.output).strip() == ""
+    # Podman 3 returns "[]" instead of ""
+    assert "".join(exc.value.output).strip() in ("[]", "")
 
 
 def test_run_autoremove():
@@ -77,7 +78,8 @@ def test_run_autoremove():
     sleep(3)
     with pytest.raises(PodmanCommandError) as exc:
         c.reload()
-    assert "".join(exc.value.output).strip() == ""
+    # Podman 3 returns "[]" instead of ""
+    assert "".join(exc.value.output).strip() in ("[]", "")
 
 
 def test_run_detach_wait():
@@ -93,7 +95,8 @@ def test_run_detach_wait():
     c.remove()
     with pytest.raises(PodmanCommandError) as exc:
         c.reload()
-    assert "".join(exc.value.output).strip() == ""
+    # Podman 3 returns "[]" instead of ""
+    assert "".join(exc.value.output).strip() in ("[]", "")
 
 
 def test_run_detach_nostream():
