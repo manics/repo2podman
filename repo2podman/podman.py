@@ -288,7 +288,6 @@ class PodmanContainer(Container):
             log_command.extend(["--since", since])
 
         if stream:
-
             # Podman logs --follow may hang if container is stopped
             def iter_logs(cid):
                 try:
