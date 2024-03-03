@@ -19,11 +19,14 @@ import yaml
 from repo2docker.__main__ import make_r2d
 
 
-def pytest_collect_file(parent, path):
-    if path.basename == "verify":
-        return LocalRepo.from_parent(parent, fspath=path)
-    # elif path.basename.endswith(".repos.yaml"):
-    #     return RemoteRepoList(path, parent)
+CONTAINER_ENGINE = os.getenv("CONTAINER_ENGINE")
+
+
+def pytest_collect_file(parent, file_path):
+    if file_path.name == "verify":
+        return LocalRepo.from_parent(parent, path=file_path)
+    # elif file_path.name.endswith(".repos.yaml"):
+    #     return RemoteRepoList.from_parent(parent, path=file_path)
 
 
 def make_test_func(args):
@@ -79,7 +82,7 @@ class Repo2DockerTest(pytest.Function):
         super().__init__(name, parent, callobj=f)
 
     def reportinfo(self):
-        return self.parent.fspath, None, ""
+        return self.parent.path, None, ""
 
     def repr_failure(self, excinfo):
         err = excinfo.value
@@ -99,20 +102,22 @@ class LocalRepo(pytest.File):
         args = [
             "--appendix",
             'RUN echo "appendix" > /tmp/appendix',
-            "--engine",
-            "podman",
+            "--engine=podman",
         ]
+        if CONTAINER_ENGINE:
+            args.append(f"--PodmanEngine.podman_executable={CONTAINER_ENGINE}")
         # If there's an extra-args.yaml file in a test dir, assume it contains
         # a yaml list with extra arguments to be passed to repo2docker
-        extra_args_path = os.path.join(self.fspath.dirname, "extra-args.yaml")
-        if os.path.exists(extra_args_path):
-            with open(extra_args_path) as f:
-                extra_args = yaml.safe_load(f)
+        extra_args_path = self.path.parent / "test-extra-args.yaml"
+        if extra_args_path.exists():
+            extra_args = yaml.safe_load(extra_args_path.read_text())
             args += extra_args
 
-        args.append(self.fspath.dirname)
+        # Avoid overly long image names
+        args.append("--image-name=" + "-".join(self.path.parent.parts[-3:]))
+        args.append(str(self.path.parent))
 
         yield Repo2DockerTest.from_parent(self, name="build", args=args)
         yield Repo2DockerTest.from_parent(
-            self, name=self.fspath.basename, args=args + ["./verify"]
+            self, name=self.path.name, args=args + ["./verify"]
         )

@@ -327,7 +327,7 @@ class PodmanContainer(Container):
 
     def stop(self, *, timeout=10):
         lines = exec_podman(
-            ["stop", "--timeout", str(timeout), self.id],
+            ["stop", "--time", str(timeout), self.id],
             capture="stdout",
             exe=self._podman_executable,
         )
