@@ -6,19 +6,21 @@ on:
 
 jobs:
   lint:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
       - uses: pre-commit/action@v3.0.1
 
   test:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     strategy:
       # Do not cancel all jobs if one fails
       fail-fast: false
       matrix:
         python_version: ["3.9"]
+        container_engine:
+          - podman
         repo_type:
           # Only test a subset of the repo2docker tests since we're testing podman,
           # not the full repo2docker functionality
@@ -33,6 +35,19 @@ jobs:
           # - r
           - unit
           - venv/default
+        include:
+          - python_version: "3.11"
+            container_engine: docker
+            repo_type: base
+          - python_version: "3.11"
+            container_engine: docker
+            repo_type: venv/default
+          - python_version: "3.11"
+            container_engine: nerdctl
+            repo_type: base
+          - python_version: "3.11"
+            container_engine: nerdctl
+            repo_type: venv/default
 
     steps:
       - name: Checkout repo
@@ -44,6 +59,15 @@ jobs:
           python-version: ${{ matrix.python_version }}
           cache: pip
           cache-dependency-path: dev-requirements.txt
+
+      - name: Install nerdctl
+        if: matrix.container_engine == 'nerdctl'
+        run: |
+          NERDCTL_VERSION=1.7.4
+          sudo systemctl disable --now docker
+          curl -sfL https://github.com/containerd/nerdctl/releases/download/v$NERDCTL_VERSION/nerdctl-full-$NERDCTL_VERSION-linux-amd64.tar.gz | sudo tar -zxvf - -C /usr/local
+          containerd-rootless-setuptool.sh install
+          containerd-rootless-setuptool.sh install-buildkit
 
       - name: Install
         run: |
@@ -67,7 +91,11 @@ jobs:
           done
 
       - name: Run tests
-        run: pytest -v tests/${{ matrix.repo_type }}
+        run: |
+          export CONTAINER_ENGINE=${{ matrix.container_engine }}
+          which $CONTAINER_ENGINE
+          $CONTAINER_ENGINE version
+          pytest -v tests/${{ matrix.repo_type }}
 
   # https://packaging.python.org/guides/publishing-package-distribution-releases-using-github-actions-ci-cd-workflows/
   publish-pypi:
@@ -76,7 +104,7 @@ jobs:
       # Only publish if other jobs passed
       - lint
       - test
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -147,7 +175,7 @@ jobs:
   status_all:
     name: Status matrix Test
     if: always()
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     needs:
       - lint
       - test

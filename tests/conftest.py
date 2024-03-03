@@ -19,6 +19,9 @@ import yaml
 from repo2docker.__main__ import make_r2d
 
 
+CONTAINER_ENGINE = os.getenv("CONTAINER_ENGINE")
+
+
 def pytest_collect_file(parent, path):
     if path.basename == "verify":
         return LocalRepo.from_parent(parent, fspath=path)
@@ -99,9 +102,10 @@ class LocalRepo(pytest.File):
         args = [
             "--appendix",
             'RUN echo "appendix" > /tmp/appendix',
-            "--engine",
-            "podman",
+            "--engine=podman",
         ]
+        if CONTAINER_ENGINE:
+            args.append(f"--PodmanEngine.podman_executable={CONTAINER_ENGINE}")
         # If there's an extra-args.yaml file in a test dir, assume it contains
         # a yaml list with extra arguments to be passed to repo2docker
         extra_args_path = os.path.join(self.fspath.dirname, "extra-args.yaml")
