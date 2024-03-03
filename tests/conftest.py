@@ -113,6 +113,8 @@ class LocalRepo(pytest.File):
             extra_args = yaml.safe_load(extra_args_path.read_text())
             args += extra_args
 
+        # Avoid overly long image names
+        args.append("--image-name=" + "-".join(self.path.parent.parts[-3:]))
         args.append(str(self.path.parent))
 
         yield Repo2DockerTest.from_parent(self, name="build", args=args)
