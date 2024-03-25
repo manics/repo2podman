@@ -1,4 +1,4 @@
 build==1.1.1
 jupyter-repo2docker==2023.6.0
 pytest==8.1.1
-pre-commit==3.6.2
+pre-commit==3.7.0
