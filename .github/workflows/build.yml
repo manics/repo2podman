@@ -63,7 +63,7 @@ jobs:
       - name: Install nerdctl
         if: matrix.container_engine == 'nerdctl'
         run: |
-          NERDCTL_VERSION=1.7.4
+          NERDCTL_VERSION=1.7.5
           sudo systemctl disable --now docker
           curl -sfL https://github.com/containerd/nerdctl/releases/download/v$NERDCTL_VERSION/nerdctl-full-$NERDCTL_VERSION-linux-amd64.tar.gz | sudo tar -zxvf - -C /usr/local
           containerd-rootless-setuptool.sh install
