@@ -593,7 +593,7 @@ class PodmanEngine(ContainerEngine):
 
         volumes = volumes or {}
         for k, v in volumes.items():
-            raise NotImplementedError("podman run volumes not implemented")
+            cmdargs.extend(["-v", f'''{k}:{v['bind']}:{v['mode']}'''])
 
         env = environment or []
         for e in env:
