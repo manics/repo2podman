@@ -381,6 +381,8 @@ class PodmanEngine(ContainerEngine):
     def build(
         self,
         *,
+        push=False,
+        load=False,
         buildargs=None,
         cache_from=None,
         container_limits=None,
@@ -449,6 +451,11 @@ class PodmanEngine(ContainerEngine):
         #     except KeyError:
         #         pass
 
+        # load is ignored, only used by docker buildx
+        # https://github.com/jupyterhub/repo2docker/pull/1421/files
+        if push and not tag:
+            raise ValueError("tag required when push=True")
+
         if kwargs:
             raise ValueError("Additional kwargs not supported")
 
@@ -472,6 +479,10 @@ class PodmanEngine(ContainerEngine):
             for line in exec_podman_stream(
                 cmdargs + [builddir], exe=self.podman_executable
             ):
+                yield line
+
+        if push:
+            for line in self.push(tag):
                 yield line
 
     def images(self):
@@ -503,6 +514,17 @@ class PodmanEngine(ContainerEngine):
             ]
 
     def inspect_image(self, image):
+        # https://github.com/jupyterhub/repo2docker/pull/1421
+        # Return None if image doesn't exist
+        try:
+            exec_podman(
+                ["image", "exists", image], capture="both", exe=self.podman_executable
+            )
+        except PodmanCommandError as e:
+            if isinstance(e.e, CalledProcessError) and e.e.returncode == 1:
+                return None
+            raise
+
         lines = exec_podman(
             ["inspect", "--type", "image", "--format", self.format_arg, image],
             capture="stdout",

@@ -9,7 +9,7 @@ success.
 """
 
 import os
-import pipes
+import shlex
 import requests
 import time
 
@@ -87,7 +87,7 @@ class Repo2DockerTest(pytest.Function):
     def repr_failure(self, excinfo):
         err = excinfo.value
         if isinstance(err, SystemExit):
-            cmd = "jupyter-repo2docker %s" % " ".join(map(pipes.quote, self.args))
+            cmd = "jupyter-repo2docker %s" % " ".join(map(shlex.quote, self.args))
             return "%s | exited with status=%s" % (cmd, err.code)
         else:
             return super().repr_failure(excinfo)
