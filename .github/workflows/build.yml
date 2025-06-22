@@ -21,6 +21,9 @@ jobs:
         python_version: ["3.9"]
         container_engine:
           - podman
+        repo2docker_version:
+          # Use version in dev-requirements.txt
+          - ""
         repo_type:
           # Only test a subset of the repo2docker tests since we're testing podman,
           # not the full repo2docker functionality
@@ -48,6 +51,11 @@ jobs:
           - python_version: "3.11"
             container_engine: nerdctl
             repo_type: venv/default
+          - python_version: "3.13"
+            container_engine: podman
+            repo_type: base
+            # 2025-05-12
+            repo2docker_version: e795060aec3555a6203ed79c3676765fb3f3b850
 
     steps:
       - name: Checkout repo
@@ -69,9 +77,16 @@ jobs:
           containerd-rootless-setuptool.sh install
           containerd-rootless-setuptool.sh install-buildkit
 
-      - name: Install
+      - name: Install dependencies
         run: |
           pip install -r dev-requirements.txt
+          if [ -n "${{ matrix.repo2docker_version }}" ]; then
+              pip install git+https://github.com/jupyterhub/repo2docker@${{ matrix.repo2docker_version }}
+          fi
+          pip freeze
+
+      - name: Install
+        run: |
           # Make a wheel and install it to catch possible issues with releases
           python -m build --wheel
           pip install dist/*.whl
@@ -80,10 +95,19 @@ jobs:
       - name: Fetch repo2docker tests
         run: |
           # Tests need to match the r2d version, need to convert YYYY.M.N to YYYY.MM.N
-          R2D_PY_VERSION=$(grep jupyter-repo2docker== dev-requirements.txt | cut -d= -f3)
-          GIT_TAG=$(echo $R2D_PY_VERSION | sed -re 's/\.([[:digit:]])\./.0\1./')
-          echo "Cloning repo2docker test from tag: $GIT_TAG"
-          git clone --depth 1 --branch=$GIT_TAG https://github.com/jupyter/repo2docker tests-repo2docker
+
+          if [ -n "${{ matrix.repo2docker_version }}" ]; then
+            echo "Cloning repo2docker test: ${{ matrix.repo2docker_version }}"
+            git clone https://github.com/jupyter/repo2docker tests-repo2docker
+            cd tests-repo2docker
+            git checkout ${{ matrix.repo2docker_version }}
+            cd ..
+          else
+            R2D_PY_VERSION=$(grep jupyter-repo2docker== dev-requirements.txt | cut -d= -f3)
+            GIT_TAG=$(echo $R2D_PY_VERSION | sed -re 's/\.([[:digit:]])\./.0\1./')
+            echo "Cloning repo2docker test from tag: $GIT_TAG"
+            git clone --depth 1 --branch=$GIT_TAG https://github.com/jupyter/repo2docker tests-repo2docker
+          fi
           for d in ./tests-repo2docker/tests/*/; do
             if [ "${d##*tests/}" != "unit/" ]; then
               cp -a $d tests
