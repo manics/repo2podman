@@ -166,7 +166,7 @@ jobs:
       # https://www.redhat.com/en/blog/build-ubi-containers-github-actions-buildah-and-podman
       - name: Buildah Action
         id: build-image
-        uses: redhat-actions/buildah-build@v2
+        uses: redhat-actions/buildah-build@v3
         with:
           image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: ${{ env.SHORT_REF }}
