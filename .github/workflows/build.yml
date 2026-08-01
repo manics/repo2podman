@@ -175,7 +175,7 @@ jobs:
 
       - name: Log in to the GitHub Container registry
         if: startsWith(github.ref, 'refs/tags/') || (github.ref == 'refs/heads/main')
-        uses: redhat-actions/podman-login@v1
+        uses: redhat-actions/podman-login@v2
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
