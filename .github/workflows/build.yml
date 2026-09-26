@@ -180,10 +180,15 @@ jobs:
         id: build-image
         uses: redhat-actions/buildah-build@v3.1.0
         with:
-          image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          # env.REGISTRY is added in redhat-actions/push-to-registry
+          image: ${{ env.IMAGE_NAME }}
           tags: ${{ env.SHORT_REF }}
           containerfiles: |
             ./Dockerfile
+
+      - name: Run repo2docker image
+        run: |
+          podman run ${{ env.IMAGE_NAME }}:${{ env.SHORT_REF }} repo2docker --version
 
       - name: Log in to the GitHub Container registry
         if: startsWith(github.ref, 'refs/tags/') || (github.ref == 'refs/heads/main')
@@ -200,10 +205,6 @@ jobs:
           image: ${{ steps.build-image.outputs.image }}
           tags: ${{ steps.build-image.outputs.tags }}
           registry: ${{ env.REGISTRY }}
-
-      - name: Run repo2docker image
-        run: |
-          podman run ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.SHORT_REF }} repo2docker --version
 
   # Provides a single status_all check that can be used in GitHub branch
   # protection rules instead of having to list each matrix job
