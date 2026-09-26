@@ -1,0 +1,46 @@
+[project]
+name = "repo2podman"
+description = "Repo2docker Podman extension"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "BSD-3-Clause"
+license-files = ["LICENSE"]
+authors = [
+  { name = "Simon Li" },
+]
+keywords = ["docker", "environments", "reproducible", "science"]
+classifiers = [
+  "Environment :: Console",
+  "Intended Audience :: Developers",
+  "Intended Audience :: Science/Research",
+  "Intended Audience :: System Administrators",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3",
+]
+dependencies = [
+  "docker-image-py",
+  "jupyter-repo2docker>=2021.08.0",
+]
+dynamic = ["version"]
+
+[project.urls]
+Homepage = "https://github.com/manics/repo2podman"
+Source = "https://github.com/manics/repo2podman"
+Tracker = "https://github.com/manics/repo2podman/issues"
+
+[project.entry-points."repo2docker.engines"]
+podman = "repo2podman.podman:PodmanEngine"
+
+[build-system]
+requires = ["setuptools>=64", "setuptools-scm>=8"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["repo2podman*"]
+
+[tool.setuptools_scm]
+version_file = "repo2podman/_version.py"

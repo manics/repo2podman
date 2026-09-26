@@ -1,16 +1,17 @@
 """Tests for podman client"""
 
-import pytest
 import re
+from time import sleep
+
+import pytest
+
 from repo2podman.podman import (
-    execute_cmd,
     PodmanCommandError,
     PodmanContainer,
     PodmanEngine,
     ProcessTerminated,
+    execute_cmd,
 )
-from time import sleep
-
 
 BUSYBOX = "docker.io/library/busybox"
 

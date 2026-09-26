@@ -1,4 +1,4 @@
-build==1.4.4
-jupyter-repo2docker==2025.8.0
-pytest==8.4.2
-pre-commit==4.3.0
+build==1.6.1
+jupyter-repo2docker==2026.4.0
+pytest==9.1.1
+pyyaml==6.0.3
