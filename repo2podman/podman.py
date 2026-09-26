@@ -1,23 +1,21 @@
 # Use Podman instead of Docker
-from functools import partial
 import json
 import logging
-from queue import Queue, Empty
 import re
-from subprocess import CalledProcessError, PIPE, STDOUT, Popen
 import tarfile
+from functools import partial
+from queue import Empty, Queue
+from subprocess import PIPE, STDOUT, CalledProcessError, Popen
 from tempfile import TemporaryDirectory
 from threading import Thread
-from traitlets import Unicode
 
 from docker_image.reference import Reference
-
 from repo2docker.engine import (
     Container,
     ContainerEngine,
     Image,
 )
-
+from traitlets import Unicode
 
 DEFAULT_READ_TIMEOUT = 1
 
@@ -50,7 +48,7 @@ class ProcessTerminated(CalledProcessError):
         self.message = message
 
     def __str__(self):
-        s = "ProcessTerminated\n  {}\n  {}".format(self.e, self.message)
+        s = f"ProcessTerminated\n  {self.e}\n  {self.message}"
         return s
 
 
@@ -92,7 +90,7 @@ def execute_cmd(
         kwargs["stderr"] = STDOUT
         capture = "stdout"
     elif capture is not None:
-        raise ValueError("Invalid capture argument: {}".format(capture))
+        raise ValueError(f"Invalid capture argument: {capture}")
 
     if input is not None:
         kwargs["stdin"] = PIPE
@@ -179,7 +177,7 @@ class PodmanCommandError(Exception):
         self.output = output
 
     def __str__(self):
-        s = "PodmanCommandError\n  {}".format(self.e)
+        s = f"PodmanCommandError\n  {self.e}"
         if self.output is not None:
             s += "\n  {}".format("".join(self.output))
         return s
@@ -215,7 +213,7 @@ def exec_podman(
     try:
         for line in p:
             # log_debug(line)
-            lines.append(line)
+            lines.append(line)  # noqa: PERF402
         return lines
     except CalledProcessError as e:
         raise PodmanCommandError(e, lines) from None
@@ -400,7 +398,7 @@ class PodmanEngine(ContainerEngine):
 
         bargs = buildargs or {}
         for k, v in bargs.items():
-            cmdargs.extend(["--build-arg", "{}={}".format(k, v)])
+            cmdargs.extend(["--build-arg", f"{k}={v}"])
 
         if cache_from:
             cmdargs.extend(["--cache-from", ",".join(cache_from)])
@@ -439,7 +437,7 @@ class PodmanEngine(ContainerEngine):
 
         if labels:
             for k, v in labels.items():
-                cmdargs.extend(["--label", "{}={}".format(k, v)])
+                cmdargs.extend(["--label", f"{k}={v}"])
 
         if platform:
             cmdargs.extend(["--platform", platform])
@@ -462,8 +460,10 @@ class PodmanEngine(ContainerEngine):
         # Avoid try-except so that if build errors occur they don't result in a
         # confusing message about an exception whilst handling an exception
         if fileobj:
-            with TemporaryDirectory() as builddir:
-                tarf = tarfile.open(fileobj=fileobj)
+            with (
+                TemporaryDirectory() as builddir,
+                tarfile.open(fileobj=fileobj) as tarf,
+            ):
                 tarf.extractall(builddir)
                 log_debug(builddir)
 
@@ -581,8 +581,7 @@ class PodmanEngine(ContainerEngine):
         args = ["push", image_spec, destination]
 
         def iter_out():
-            for line in exec_podman_stream(args, exe=self.podman_executable):
-                yield line
+            yield from exec_podman_stream(args, exe=self.podman_executable)
 
         return iter_out()
 
@@ -607,9 +606,8 @@ class PodmanEngine(ContainerEngine):
         ports = ports or {}
         # container-port/protocol:host-port
         for k, v in ports.items():
-            if k.endswith("/tcp"):
-                k = k[:-4]
-            cmdargs.extend(["--publish", "{}:{}".format(v, k)])
+            k = k.removesuffix("/tcp")
+            cmdargs.extend(["--publish", f"{v}:{k}"])
 
         cmdargs.append("--detach")
 

@@ -10,14 +10,12 @@ success.
 
 import os
 import shlex
-import requests
 import time
 
 import pytest
+import requests
 import yaml
-
 from repo2docker.__main__ import make_r2d
-
 
 CONTAINER_ENGINE = os.getenv("CONTAINER_ENGINE")
 
@@ -45,7 +43,7 @@ def make_test_func(args):
         container = app.start_container()
         port = app.port
         # wait a bit for the container to be ready
-        container_url = "http://localhost:%s/api" % port
+        container_url = f"http://localhost:{port}/api"
         # give the container a chance to start
         time.sleep(1)
         try:
@@ -56,14 +54,14 @@ def make_test_func(args):
                 assert container.status == "running"
                 try:
                     info = requests.get(container_url).json()
-                except Exception as e:
-                    print("Error: %s" % e)
+                except Exception as e:  # noqa: BLE001
+                    print(f"Error: {e}")
                     time.sleep(i * 3)
                 else:
                     print(info)
                     success = True
                     break
-            assert success, "Notebook never started in %s" % container
+            assert success, f"Notebook never started in {container}"
         finally:
             # stop the container
             container.stop()
@@ -87,8 +85,8 @@ class Repo2DockerTest(pytest.Function):
     def repr_failure(self, excinfo):
         err = excinfo.value
         if isinstance(err, SystemExit):
-            cmd = "jupyter-repo2docker %s" % " ".join(map(shlex.quote, self.args))
-            return "%s | exited with status=%s" % (cmd, err.code)
+            cmd = "jupyter-repo2docker {}".format(" ".join(map(shlex.quote, self.args)))
+            return f"{cmd} | exited with status={err.code}"
         else:
             return super().repr_failure(excinfo)
 
