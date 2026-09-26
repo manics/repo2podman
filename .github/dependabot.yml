@@ -21,6 +21,9 @@ updates:
       actions:
         patterns:
           - "actions/*"
+      redhat-actions:
+        patterns:
+          - "redhat-actions/*"
     schedule:
       interval: monthly
     cooldown:
