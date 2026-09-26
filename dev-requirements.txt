@@ -1,3 +1,4 @@
 build==1.6.1
 jupyter-repo2docker==2025.8.0
 pytest==9.1.1
+pyyaml==6.0.3
