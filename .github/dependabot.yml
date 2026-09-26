@@ -3,10 +3,31 @@ version: 2
 updates:
   - package-ecosystem: pip
     directory: /
+    groups:
+      pip:
+        patterns:
+          - "*"
+        update-types:
+          - minor
+          - patch
     schedule:
-      interval: weekly
-
+      interval: monthly
+    cooldown:
+      default-days: 7
   - package-ecosystem: github-actions
+    directory: /
+    groups:
+      # group official actions updates
+      actions:
+        patterns:
+          - "actions/*"
+    schedule:
+      interval: monthly
+    cooldown:
+      default-days: 7
+  - package-ecosystem: docker
     directory: /
     schedule:
       interval: monthly
+    cooldown:
+      default-days: 7
