@@ -6,13 +6,13 @@ on:
 
 jobs:
   lint:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@v7
       - uses: j178/prek-action@v3.0.0
 
   test:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     strategy:
       # Do not cancel all jobs if one fails
       fail-fast: false
@@ -140,7 +140,7 @@ jobs:
       # Only publish if other jobs passed
       - lint
       - test
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
@@ -160,7 +160,7 @@ jobs:
       # Only publish if other jobs passed
       - lint
       - test
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     env:
       REGISTRY: ghcr.io
       IMAGE_NAME: ${{ github.repository }}
@@ -212,7 +212,7 @@ jobs:
   status_all:
     name: Status matrix Test
     if: always()
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-26.04
     needs:
       - lint
       - test
