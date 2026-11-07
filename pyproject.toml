@@ -44,3 +44,6 @@ include = ["repo2podman*"]
 
 [tool.setuptools_scm]
 version_file = "repo2podman/_version.py"
+
+[tool.pytest]
+addopts = ["--color=yes"]
